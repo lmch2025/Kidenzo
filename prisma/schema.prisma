@@ -1,0 +1,317 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  phone        String   @unique
+  pinHash      String
+  name         String?
+  avatar       String?
+  role         String   @default("recommender") // owner, ambassador, recommender
+  ambassadorId String?
+  ambassador   User?    @relation("AmbassadorRecommenders", fields: [ambassadorId], references: [id])
+  recommenders User[]   @relation("AmbassadorRecommenders")
+  xp           Int      @default(0)
+  level        Int      @default(1)
+  coins        Int      @default(0)
+  streak       Int      @default(0)
+  bestStreak   Int      @default(0)
+  spinsToday   Int      @default(0)
+  lastSpinAt   DateTime?
+  lastActiveAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  clickEarnings       Float    @default(0)
+  totalValidClicks    Int      @default(0)
+  totalFraudClicks    Int      @default(0)
+
+  products            Product[]
+  recommenderProducts RecommenderProduct[]
+  ordersAsRecommender Order[]
+  commissionPayments  CommissionPayment[]
+  badges              UserBadge[]
+  achievements        UserAchievement[]
+  dailyQuests         UserDailyQuest[]
+  rewards             UserReward[]
+  clickEvents         ClickEvent[]
+  suspiciousActivities SuspiciousActivity[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id])
+  name        String
+  description String
+  basePrice   Float
+  category    String   @default("general")
+  stock       Int      @default(0)
+  status      String   @default("active") // active, inactive
+  maxCommission Int    @default(40)
+  weight      String   @default("") // e.g. "500g", "1.2kg"
+  dimensions  String   @default("") // e.g. "30x20x10cm"
+  sourceUrl   String?  // Original Alibaba/AliExpress URL
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  images     ProductImage[]
+  miniSite   MiniSite?
+}
+
+model ProductImage {
+  id         String  @id @default(cuid())
+  productId  String
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  storageUrl String
+  position   Int     @default(0)
+}
+
+model MiniSite {
+  id        String   @id @default(cuid())
+  productId String   @unique
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  recommenderProducts RecommenderProduct[]
+  orders     Order[]
+}
+
+model RecommenderProduct {
+  id            String   @id @default(cuid())
+  recommenderId String
+  recommender   User     @relation(fields: [recommenderId], references: [id])
+  miniSiteId    String
+  miniSite      MiniSite @relation(fields: [miniSiteId], references: [id])
+  commissionPct Int      @default(10)
+  visits        Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([recommenderId, miniSiteId])
+}
+
+model Order {
+  id                  String   @id @default(cuid())
+  miniSiteId          String
+  miniSite            MiniSite @relation(fields: [miniSiteId], references: [id])
+  recommenderId       String?
+  recommender         User?    @relation(fields: [recommenderId], references: [id])
+  customerName        String
+  customerPhone       String
+  customerAddress     String
+  customerMessage     String?
+  finalPrice          Float
+  commissionRecommender Float  @default(0)
+  commissionAmbassador  Float  @default(0)
+  status              String   @default("pending") // pending, confirmed, delivered, cancelled
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  commissionPayments CommissionPayment[]
+}
+
+model CommissionPayment {
+  id            String   @id @default(cuid())
+  orderId       String
+  order         Order    @relation(fields: [orderId], references: [id])
+  beneficiaryId String
+  beneficiary   User     @relation(fields: [beneficiaryId], references: [id])
+  amount        Float
+  paidAt        DateTime @default(now())
+}
+
+model Badge {
+  id          String @id @default(cuid())
+  name        String
+  description String
+  icon        String
+  category    String // sale, social, streak, milestone, special
+  rarity      String @default("common") // common, rare, epic, legendary
+  threshold   Int    @default(0)
+  xpReward    Int    @default(0)
+  coinReward  Int    @default(0)
+
+  userBadges UserBadge[]
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  badgeId   String
+  badge     Badge    @relation(fields: [badgeId], references: [id])
+  earnedAt  DateTime @default(now())
+
+  @@unique([userId, badgeId])
+}
+
+model Achievement {
+  id          String @id @default(cuid())
+  name        String
+  description String
+  icon        String
+  category    String // sale, social, streak, milestone
+  threshold   Int    @default(0)
+  xpReward    Int    @default(0)
+  coinReward  Int    @default(0)
+
+  userAchievements UserAchievement[]
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id])
+  progress      Int      @default(0)
+  completed     Boolean  @default(false)
+  completedAt   DateTime?
+  createdAt     DateTime @default(now())
+
+  @@unique([userId, achievementId])
+}
+
+model DailyQuest {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  icon        String
+  category    String // sale, social, streak, daily, weekly
+  type        String   @default("daily") // daily, weekly
+  threshold   Int      @default(1)
+  xpReward    Int      @default(0)
+  coinReward  Int      @default(0)
+  dayOfWeek   Int?     // 0-6 for weekly quests (null = any day)
+  active      Boolean  @default(true)
+
+  userQuests UserDailyQuest[]
+}
+
+model UserDailyQuest {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  questId   String
+  quest     DailyQuest @relation(fields: [questId], references: [id])
+  progress  Int       @default(0)
+  completed Boolean   @default(false)
+  claimed   Boolean   @default(false)
+  assignedAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@unique([userId, questId, assignedAt])
+}
+
+model Reward {
+  id          String  @id @default(cuid())
+  name        String
+  description String
+  icon        String
+  category    String  // cosmetic, boost, special
+  coinCost    Int     @default(0)
+  xpBonus     Int     @default(0)
+  rarity      String  @default("common") // common, rare, epic, legendary
+  active      Boolean @default(true)
+
+  userRewards UserReward[]
+}
+
+model UserReward {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  rewardId  String
+  reward    Reward   @relation(fields: [rewardId], references: [id])
+  purchasedAt DateTime @default(now())
+  active    Boolean  @default(true)
+
+  @@unique([userId, rewardId])
+}
+
+// ─── Pay-Per-Click (PPC) System ──────────────────────────────────────
+
+model ClickConfig {
+  id                      String  @id @default(cuid())
+  ratePerClick            Float   @default(5.0)    // FCFA per valid click
+  maxClicksPerIpPerDay    Int     @default(3)       // Max clicks from same IP per day
+  maxClicksPerFingerprint Int     @default(2)       // Max clicks from same fingerprint per day
+  minClickIntervalMs      Int     @default(30000)   // 30 seconds minimum between clicks
+  maxClicksPerRecommender Int     @default(500)     // Max daily clicks per recommender
+  fraudScoreThreshold     Int     @default(70)      // Score above which click is rejected (0-100)
+  autoBlockEnabled        Boolean @default(true)    // Auto-block suspicious patterns
+  velocityWindowMinutes   Int     @default(5)       // Time window for velocity check
+  maxClicksInVelocityWindow Int   @default(10)      // Max clicks in velocity window
+  requireVerification     Boolean @default(false)   // Require click verification token
+  active                  Boolean @default(true)    // Is PPC system active
+  updatedAt               DateTime @updatedAt
+}
+
+model ClickEvent {
+  id                String   @id @default(cuid())
+  recommenderId     String
+  recommender       User     @relation(fields: [recommenderId], references: [id])
+  miniSiteId        String
+  visitorIp         String
+  visitorFingerprint String  // Hash of (IP + User-Agent + screen + timezone + language)
+  userAgent         String
+  referer           String?
+  sessionId         String?  // Session identifier for deduplication
+  isVerified        Boolean  @default(false)  // Passed all anti-fraud checks
+  isFraud           Boolean  @default(false)  // Flagged as fraud
+  fraudScore        Int      @default(0)      // 0-100, higher = more suspicious
+  fraudReasons      String   @default("")     // Comma-separated fraud reason codes
+  earnings          Float    @default(0)      // FCFA earned from this click (0 if fraud)
+  country           String   @default("CM")   // Country code from IP
+  deviceType        String   @default("unknown") // mobile, desktop, tablet, bot
+  browserName       String   @default("unknown")
+  osName            String   @default("unknown")
+  screenResolution  String   @default("unknown")
+  timezone          String   @default("unknown")
+  language          String   @default("unknown")
+  clickToken        String?  // Verification token
+  validatedAt       DateTime @default(now())
+  createdAt         DateTime @default(now())
+
+  // Indexes for anti-fraud lookups
+  @@index([recommenderId, createdAt])
+  @@index([visitorIp, createdAt])
+  @@index([visitorFingerprint, createdAt])
+  @@index([isFraud])
+  @@index([miniSiteId, createdAt])
+}
+
+model SuspiciousActivity {
+  id              String   @id @default(cuid())
+  recommenderId   String
+  recommender     User     @relation(fields: [recommenderId], references: [id])
+  activityType    String   // velocity, duplicate_ip, duplicate_fingerprint, bot, proxy, anomaly
+  severity        String   @default("medium") // low, medium, high, critical
+  description     String
+  metadata        String   @default("{}") // JSON string with additional data
+  isResolved      Boolean  @default(false)
+  resolvedBy      String?  // Admin user ID who resolved it
+  resolvedAt      DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([recommenderId, createdAt])
+  @@index([isResolved])
+  @@index([severity])
+}
+
+// ─── System Configuration ─────────────────────────────────────────
+
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
