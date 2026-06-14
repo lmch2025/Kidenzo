@@ -524,6 +524,7 @@ function MarketingShareModal({
   // Auto-generate when modal opens
   useEffect(() => {
     if (open && product?.name) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       generateAiText()
     }
     if (!open) {

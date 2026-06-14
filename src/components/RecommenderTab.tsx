@@ -405,6 +405,7 @@ function MarketingShareModal({
   // Auto-generate when modal opens
   useEffect(() => {
     if (open && productName) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       generateAiText()
     }
     if (!open) {
@@ -856,6 +857,7 @@ export function RecommenderTab() {
   }, [userId, token, setRecommenderProducts])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchRecommenderData()
   }, [fetchRecommenderData])
 

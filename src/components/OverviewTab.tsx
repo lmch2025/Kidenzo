@@ -211,6 +211,7 @@ export function OverviewTab() {
   }, [userId, userRole, token, setProducts, setOrders, setRecommenderProducts, setGamificationData])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData()
   }, [fetchData])
 

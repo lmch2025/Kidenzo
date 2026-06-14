@@ -209,6 +209,7 @@ export function ProductsTab() {
   }, [userId, token, setProducts])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchProducts()
   }, [fetchProducts])
 

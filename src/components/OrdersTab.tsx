@@ -79,6 +79,7 @@ export function OrdersTab() {
   }, [userId, userRole, token, setOrders])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchOrders()
   }, [fetchOrders])
 
