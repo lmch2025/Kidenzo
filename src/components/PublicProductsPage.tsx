@@ -1503,7 +1503,7 @@ export default function PublicProductsPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0d0118] relative overflow-hidden">
+    <div className="flex flex-col relative">
       {/* ── Background Effects ── */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div
@@ -1523,57 +1523,8 @@ export default function PublicProductsPage() {
         ))}
       </div>
 
-      {/* ── Header ── */}
-      <header className="glass-strong fixed top-0 left-0 right-0 z-50 border-glow">
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-3 px-4 py-3">
-          <motion.div
-            className="flex items-center gap-2.5"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 via-pink-500 to-purple-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
-              <Sparkles className="w-4.5 h-4.5 text-white" />
-            </div>
-            <span className="font-bold text-lg gradient-text-warm">Kidenzo</span>
-          </motion.div>
-
-          <motion.div
-            className="flex items-center gap-3"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <span className="hidden sm:block text-xs text-white/40">
-              Plateforme de recommandation
-            </span>
-            {isAuthenticated ? (
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button
-                  onClick={() => setCurrentView('dashboard')}
-                  className="bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 text-white font-semibold text-sm shadow-lg shadow-orange-500/20 h-9 px-5"
-                >
-                  <LayoutDashboard className="w-4 h-4 mr-1.5" />
-                  Tableau de bord
-                </Button>
-              </motion.div>
-            ) : (
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button
-                  onClick={() => setShowAuthModal(true, 'Connectez-vous pour accéder à votre tableau de bord')}
-                  className="bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 text-white font-semibold text-sm shadow-lg shadow-orange-500/20 h-9 px-5"
-                >
-                  <LogIn className="w-4 h-4 mr-1.5" />
-                  Connexion
-                </Button>
-              </motion.div>
-            )}
-          </motion.div>
-        </div>
-      </header>
-
       {/* ── Hero Section ── */}
-      <section className="relative z-10 px-4 pt-24 pb-8 max-w-6xl mx-auto w-full mt-4">
+      <section className="relative z-10 pt-8 pb-8 w-full mt-4">
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}

@@ -102,16 +102,12 @@ export default function Home() {
   return (
     <Suspense fallback={<LoadingFallback />}>
       <GamificationOverlay />
-      {currentView === 'public' ? (
-        <PublicProductsPage />
-      ) : currentView === 'auth' ? (
+      {currentView === 'auth' ? (
         <AuthScreen />
-      ) : currentView === 'dashboard' ? (
-        <DashboardLayout />
-      ) : isAuthenticated ? (
-        <DashboardLayout />
+      ) : currentView === 'mini-site' && miniSiteSlug ? (
+        <MiniSiteView slug={miniSiteSlug} />
       ) : (
-        <PublicProductsPage />
+        <DashboardLayout />
       )}
     </Suspense>
   )

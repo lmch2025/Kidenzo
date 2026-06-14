@@ -259,6 +259,7 @@ export function AdminPPC() {
 
   useEffect(() => {
     if (activeSubTab === 'audit') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchClickAudit(auditPage, auditFilter)
     }
   }, [activeSubTab, auditPage, auditFilter, fetchClickAudit])

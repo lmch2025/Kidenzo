@@ -13,6 +13,7 @@ import {
   Trophy,
   Crown,
   LogOut,
+  LogIn,
   Coins,
   Flame,
   Zap,
@@ -63,6 +64,7 @@ const AdminPanel = dynamic(() => import('@/components/admin/AdminPanel').then(m 
   ssr: false,
   loading: () => <TabLoadingFallback />,
 })
+const PublicProductsPage = dynamic(() => import('@/components/PublicProductsPage'), { ssr: false })
 
 function TabLoadingFallback() {
   return (
@@ -133,6 +135,27 @@ const OVERFLOW_ITEMS: Record<UserRole, NavItem[]> = {
     { id: 'leaderboard', label: 'Classement', icon: Crown, roles: ['recommender'] },
   ],
 }
+
+// Visitor nav items
+const VISITOR_NAV_ITEMS: NavItem[] = [
+  { id: 'overview', label: "Accueil", icon: LayoutDashboard, roles: [], section: 'principal' },
+  { id: 'products', label: 'Produits', icon: Package, roles: [], section: 'principal' },
+  { id: 'orders', label: 'Commandes', icon: ShoppingCart, roles: [], section: 'principal' },
+  { id: 'gamification', label: 'Succès', icon: Trophy, roles: [], section: 'progression' },
+  { id: 'leaderboard', label: 'Classement', icon: Crown, roles: [], section: 'progression' },
+]
+
+const VISITOR_BOTTOM_NAV_ITEMS: Array<NavItem | 'more'> = [
+  { id: 'overview', label: 'Accueil', icon: LayoutDashboard, roles: [] },
+  { id: 'products', label: 'Produits', icon: Package, roles: [] },
+  { id: 'orders', label: 'Commandes', icon: ShoppingCart, roles: [] },
+  { id: 'gamification', label: 'Succès', icon: Trophy, roles: [] },
+  'more',
+]
+
+const VISITOR_OVERFLOW_ITEMS: NavItem[] = [
+  { id: 'leaderboard', label: 'Classement', icon: Crown, roles: [] },
+]
 
 const TAB_INDEX: Record<DashboardTab, number> = {
   overview: 0,
@@ -340,18 +363,18 @@ function MoreMenu({
 }
 
 export function DashboardLayout() {
-  const { user, dashboardTab, setDashboardTab, logout, gamificationData, setCurrentView } = useAppStore()
+  const { user, isAuthenticated, dashboardTab, setDashboardTab, logout, gamificationData, setCurrentView, setShowAuthModal } = useAppStore()
   const [prevTabIndex, setPrevTabIndex] = useState(0)
   const [progressAnimated, setProgressAnimated] = useState(false)
   const [moreMenuOpen, setMoreMenuOpen] = useState(false)
 
   const userRole = user?.role as UserRole
-  const visibleNavItems = NAV_ITEMS.filter((item) => item.roles.includes(userRole))
-  const currentTabIndex = TAB_INDEX[dashboardTab]
+  const visibleNavItems = isAuthenticated ? NAV_ITEMS.filter((item) => item.roles.includes(userRole)) : VISITOR_NAV_ITEMS
+  const currentTabIndex = TAB_INDEX[dashboardTab] || 0
 
   // Bottom nav items for this role
-  const bottomItems = BOTTOM_NAV_ITEMS[userRole] || []
-  const overflowItems = OVERFLOW_ITEMS[userRole] || []
+  const bottomItems = isAuthenticated ? (BOTTOM_NAV_ITEMS[userRole] || []) : VISITOR_BOTTOM_NAV_ITEMS
+  const overflowItems = isAuthenticated ? (OVERFLOW_ITEMS[userRole] || []) : VISITOR_OVERFLOW_ITEMS
 
   // Check if current tab is in overflow (More menu)
   const isOverflowTab = overflowItems.some(item => item.id === dashboardTab)
@@ -384,6 +407,15 @@ export function DashboardLayout() {
   }, {})
 
   const renderTab = () => {
+    if (!isAuthenticated) {
+      // Pour les visiteurs, seul l'aperçu/catalogue est accessible publiquement via le layout.
+      // Les autres clics déclenchent l'authentification.
+      if (dashboardTab === 'overview') {
+        return <PublicProductsPage />
+      }
+      return null
+    }
+
     switch (dashboardTab) {
       case 'overview':
         return <OverviewTab />
@@ -409,9 +441,15 @@ export function DashboardLayout() {
   }
 
   const handleNavigate = useCallback((tab: DashboardTab) => {
+    if (!isAuthenticated && tab !== 'overview') {
+      // Redirige le visiteur vers l'authentification s'il clique sur un onglet protégé
+      setShowAuthModal(true, 'Connectez-vous pour accéder à cette section')
+      setCurrentView('auth')
+      return
+    }
     setDashboardTab(tab)
     setMoreMenuOpen(false)
-  }, [setDashboardTab])
+  }, [isAuthenticated, setDashboardTab, setShowAuthModal, setCurrentView])
 
   return (
     <div className="h-[100dvh] flex flex-col bg-background animated-gradient-bg relative overflow-hidden">
@@ -447,8 +485,8 @@ export function DashboardLayout() {
             <span className="font-bold text-lg gradient-text-warm hidden sm:block">Kidenzo</span>
           </motion.div>
 
-          {/* User Info */}
-          {user && (
+          {/* User Info / Login */}
+          {isAuthenticated && user ? (
             <motion.div
               className="flex items-center gap-2 sm:gap-3"
               initial={{ opacity: 0, x: 20 }}
@@ -503,6 +541,23 @@ export function DashboardLayout() {
                 className="h-8 w-8 text-muted-foreground hover:text-destructive transition-colors"
               >
                 <LogOut className="w-4 h-4" />
+              </Button>
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <Button
+                onClick={() => {
+                  setShowAuthModal(true, 'Connectez-vous pour accéder à votre espace')
+                  setCurrentView('auth')
+                }}
+                className="bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 text-white font-semibold text-sm shadow-lg shadow-orange-500/20 h-9 px-5"
+              >
+                <LogIn className="w-4 h-4 mr-1.5" />
+                Connexion
               </Button>
             </motion.div>
           )}
@@ -576,26 +631,43 @@ export function DashboardLayout() {
             )
           })}
 
-          {/* Logout at bottom */}
+          {/* Bottom Actions */}
           <div className="mt-auto pt-4 space-y-1">
             <motion.button
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => setCurrentView('public')}
+              onClick={() => {
+                setDashboardTab('overview')
+              }}
               className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-orange-400 hover:bg-orange-500/5 transition-all w-full"
             >
               <Store className="w-5 h-5" />
               <span>Catalogue public</span>
             </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={logout}
-              className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-red-500/5 transition-all w-full"
-            >
-              <LogOut className="w-5 h-5" />
-              <span>Déconnexion</span>
-            </motion.button>
+            {isAuthenticated ? (
+              <motion.button
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={logout}
+                className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-red-500/5 transition-all w-full"
+              >
+                <LogOut className="w-5 h-5" />
+                <span>Déconnexion</span>
+              </motion.button>
+            ) : (
+              <motion.button
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => {
+                  setShowAuthModal(true, 'Connectez-vous pour accéder à votre espace')
+                  setCurrentView('auth')
+                }}
+                className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-orange-400 hover:bg-orange-500/5 transition-all w-full"
+              >
+                <LogIn className="w-5 h-5" />
+                <span>Connexion</span>
+              </motion.button>
+            )}
           </div>
         </nav>
 

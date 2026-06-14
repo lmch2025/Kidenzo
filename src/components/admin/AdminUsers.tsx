@@ -243,6 +243,7 @@ function UserCard({
 
   // Sync local banned state with prop changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLocalBanned(user.isBanned)
   }, [user.isBanned])
 
@@ -556,6 +557,7 @@ export function AdminUsers() {
   // ─── Initial fetch ───────────────────────────────────────────────
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchUsers(page, search, roleFilter)
   }, [page, search, roleFilter, fetchUsers])
 
