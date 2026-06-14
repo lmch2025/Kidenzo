@@ -142,9 +142,6 @@ function SuccessParticleBurst() {
         isCircle: seededRandom(i * 5 + 106) > 0.5,
       }
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    checkAchievements()
   }, [])
 
   return (

@@ -380,6 +380,7 @@ export function DashboardLayout() {
   const isOverflowTab = overflowItems.some(item => item.id === dashboardTab)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPrevTabIndex(currentTabIndex)
   }, [currentTabIndex])
 

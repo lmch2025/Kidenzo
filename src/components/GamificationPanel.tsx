@@ -1760,15 +1760,18 @@ export default function GamificationPanel() {
 
   // Effects
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchGamificationData()
   }, [fetchGamificationData])
 
   useEffect(() => {
     if (activeTab === 'classement') fetchLeaderboard()
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (activeTab === 'boutique') fetchRewards()
   }, [activeTab, fetchLeaderboard, fetchRewards])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     checkAchievements()
   }, [])
 

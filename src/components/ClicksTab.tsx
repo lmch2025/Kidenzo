@@ -64,6 +64,7 @@ export function ClicksTab() {
   }, [userId, setClickStats])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchClickStats()
   }, [fetchClickStats])
 
