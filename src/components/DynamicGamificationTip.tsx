@@ -10,10 +10,8 @@ export function DynamicGamificationTip() {
   const setDashboardTab = useAppStore((s) => s.setDashboardTab)
   const [currentTipIndex, setCurrentTipIndex] = useState(0)
 
-  // On attend que les données soient chargées
-  if (!gamificationData) return null
-
-  const { progress, quests } = gamificationData
+  const progress = gamificationData?.progress
+  const quests = gamificationData?.quests
   const pointsToNextLevel = (progress?.xpForNextLevel || 0) - (progress?.currentXP || 0)
 
   // Générer des astuces dynamiques basées sur l'état de l'utilisateur
@@ -63,7 +61,7 @@ export function DynamicGamificationTip() {
   const activeTip = tips[currentTipIndex % tips.length]
   const Icon = activeTip?.icon
 
-  if (!activeTip) return null
+  if (!activeTip || !gamificationData) return null
 
   return (
     <div className="mb-6 relative h-auto min-h-[5rem] sm:min-h-[6rem]">

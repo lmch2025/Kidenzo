@@ -38,6 +38,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet'
+import { DynamicGamificationTip } from '@/components/DynamicGamificationTip'
 
 // ─── Animated Price Counter ──────────────────────────────────────
 function AnimatedCounter({ value, className }: { value: number; className?: string }) {
@@ -975,6 +976,8 @@ export function RecommenderTab() {
 
   return (
     <div className="space-y-6">
+      <DynamicGamificationTip />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold gradient-text-warm flex items-center gap-2">
