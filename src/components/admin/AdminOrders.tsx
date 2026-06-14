@@ -412,6 +412,7 @@ export function AdminOrders() {
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchOrders(page, search, statusFilter)
   }, [page, search, statusFilter, fetchOrders])
 

@@ -290,6 +290,7 @@ export function AdminMiniSites() {
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchMiniSites(page, search)
   }, [page, search, fetchMiniSites])
 
