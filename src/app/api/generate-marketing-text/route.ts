@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import ZAI from 'z-ai-web-dev-sdk'
 
-// ─── 7 Free OpenRouter Models ─────────────────────────────────────
-// Ordered by diversity potential — each call shuffles to get different models first
 const FREE_MODELS = [
-  'meta-llama/llama-4-maverick:free',
-  'deepseek/deepseek-chat-v3-0324:free',
-  'google/gemini-2.0-flash-exp:free',
-  'meta-llama/llama-4-scout:free',
-  'nvidia/llama-3.1-nemotron-70b-instruct:free',
-  'qwen/qwen3-8b:free',
-  'microsoft/phi-4:free',
+  'openai/gpt-oss-120b:free',
+  'openai/gpt-oss-20b:free',
+  'google/gemma-4-31b-it:free',
+  'nvidia/nemotron-3-nano-30b-a3b:free',
+  'google/gemma-4-26b-a4b-it:free',
+  'qwen/qwen3-next-80b-a3b-instruct:free',
+  'cognitivecomputations/dolphin-mistral-24b-venice-edition:free'
 ]
 
 // ─── Fisher-Yates Shuffle ──────────────────────────────────────────
@@ -77,20 +74,38 @@ Texte marketing :`
     const modelQueue = shuffle(FREE_MODELS)
     let lastError: Error | null = null
 
-    const zai = await ZAI.create()
-
     // Try each model until one succeeds
     for (const model of modelQueue) {
       try {
-        const completion = await zai.chat.completions.create({
-          model,
-          messages: [
-            { role: 'assistant', content: buildSystemPrompt() },
-            { role: 'user', content: userPrompt },
-          ],
-          thinking: { type: 'disabled' },
+        const apiKey = process.env.OPENROUTER_API_KEY
+        if (!apiKey) {
+          throw new Error('OPENROUTER_API_KEY is missing from environment variables')
+        }
+
+        const openRouterRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://recopay.com", // Replace with your actual domain
+            "X-Title": "RecoPay"
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [
+              { role: 'system', content: buildSystemPrompt() },
+              { role: 'user', content: userPrompt },
+            ],
+            // max_tokens: 150
+          })
         })
 
+        if (!openRouterRes.ok) {
+          const errText = await openRouterRes.text()
+          throw new Error(`OpenRouter API error: ${openRouterRes.status} - ${errText}`)
+        }
+
+        const completion = await openRouterRes.json()
         const text = completion.choices?.[0]?.message?.content?.trim()
 
         if (text && text.length > 5) {

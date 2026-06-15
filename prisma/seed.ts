@@ -362,6 +362,17 @@ async function main() {
 
   console.log(`✅ User Daily Quests: ${questsAssigned} assigned to recommender`)
 
+  // ─── SystemConfig ───────────────────────────────────────────────────
+  await db.systemConfig.upsert({
+    where: { key: 'min_withdrawal_amount' },
+    update: {},
+    create: {
+      key: 'min_withdrawal_amount',
+      value: '2000',
+    },
+  })
+  console.log(`✅ SystemConfig: min_withdrawal_amount set to 2000`)
+
   // ─── Summary ───────────────────────────────────────────────────────
   const badgeCount = await db.badge.count()
   const achievementCount = await db.achievement.count()

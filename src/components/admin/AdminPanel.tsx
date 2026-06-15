@@ -12,6 +12,7 @@ import {
   Trophy,
   MousePointerClick,
   Settings,
+  Wallet,
   ChevronRight,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
@@ -24,8 +25,9 @@ const AdminMiniSites = dynamic(() => import('./AdminMiniSites').then(m => ({ def
 const AdminGamification = dynamic(() => import('./AdminGamification').then(m => ({ default: m.AdminGamification })), { ssr: false })
 const AdminPPC = dynamic(() => import('./AdminPPC').then(m => ({ default: m.AdminPPC })), { ssr: false })
 const AdminSystem = dynamic(() => import('./AdminSystem').then(m => ({ default: m.AdminSystem })), { ssr: false })
+const AdminWithdrawals = dynamic(() => import('./AdminWithdrawals').then(m => ({ default: m.AdminWithdrawals })), { ssr: false })
 
-export type AdminSection = 'dashboard' | 'products' | 'orders' | 'users' | 'mini-sites' | 'gamification' | 'ppc' | 'system'
+export type AdminSection = 'dashboard' | 'products' | 'orders' | 'users' | 'mini-sites' | 'gamification' | 'ppc' | 'withdrawals' | 'system'
 
 interface AdminNavItem {
   id: AdminSection
@@ -42,6 +44,7 @@ const ADMIN_NAV: AdminNavItem[] = [
   { id: 'mini-sites', label: 'Mini-Sites', icon: Globe, description: 'Sites produits' },
   { id: 'gamification', label: 'Gamification', icon: Trophy, description: 'Badges & Récompenses' },
   { id: 'ppc', label: 'PPC & Anti-Fraude', icon: MousePointerClick, description: 'Clics rémunérés' },
+  { id: 'withdrawals', label: 'Retraits', icon: Wallet, description: 'Demandes de retraits' },
   { id: 'system', label: 'Système', icon: Settings, description: 'Configuration' },
 ]
 
@@ -57,6 +60,7 @@ export function AdminPanel() {
       case 'mini-sites': return <AdminMiniSites />
       case 'gamification': return <AdminGamification />
       case 'ppc': return <AdminPPC />
+      case 'withdrawals': return <AdminWithdrawals />
       case 'system': return <AdminSystem />
       default: return <AdminDashboard />
     }

@@ -25,7 +25,19 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     })
 
-    return NextResponse.json({ products })
+    // Fetch proportion from config, default to 70
+    const config = await db.systemConfig.findUnique({
+      where: { key: 'recommender_commission_proportion' }
+    })
+    const proportion = config && !isNaN(parseInt(config.value)) ? parseInt(config.value) : 70
+
+    // Inject recommenderMaxCommission
+    const mappedProducts = products.map(p => ({
+      ...p,
+      recommenderMaxCommission: Math.floor(p.maxCommission * (proportion / 100))
+    }))
+
+    return NextResponse.json({ products: mappedProducts })
   } catch (error) {
     console.error('Products GET error:', error)
     return NextResponse.json(
@@ -39,7 +51,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { ownerId, name, description, basePrice, category, stock, maxCommission, weight, dimensions, sourceUrl, images } = body
+    const { ownerId, name, description, basePrice, category, stock, maxCommission, commissionPerClick, weight, dimensions, sourceUrl, images } = body
 
     if (!ownerId || !name || !description || basePrice === undefined) {
       return NextResponse.json(
@@ -76,6 +88,7 @@ export async function POST(request: NextRequest) {
         category: category || 'general',
         stock: stock ? parseInt(String(stock)) : 0,
         maxCommission: maxCommission ? parseInt(String(maxCommission)) : 40,
+        commissionPerClick: commissionPerClick ? parseFloat(String(commissionPerClick)) : 0,
         weight: weight || '',
         dimensions: dimensions || '',
         sourceUrl: sourceUrl || null,

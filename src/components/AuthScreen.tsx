@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sparkles, Phone, Lock, User, Zap, Loader2, Eye, EyeOff } from 'lucide-react'
+import { Sparkles, Phone, Lock, User, Zap, Loader2, Eye, EyeOff, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/lib/store'
@@ -278,7 +278,12 @@ function FloatingLabel({
 
 // ─── Main Component ───────────────────────────────────────────
 export default function AuthScreen() {
-  const { setUser, addXPNotification, setAuthLoading, isAuthLoading, setShowAuthModal } = useAppStore()
+  const setUser = useAppStore((s) => s.setUser)
+  const setAuthLoading = useAppStore((s) => s.setAuthLoading)
+  const isAuthLoading = useAppStore((s) => s.isAuthLoading)
+  const addXPNotification = useAppStore((s) => s.addXPNotification)
+  const setShowAuthModal = useAppStore((s) => s.setShowAuthModal)
+  const setCurrentView = useAppStore((s) => s.setCurrentView)
 
   const [phone, setPhone] = useState('')
   const [pin, setPin] = useState('')
@@ -397,6 +402,18 @@ export default function AuthScreen() {
 
   return (
     <div className="relative h-dvh flex items-center justify-center overflow-hidden bg-[#0d0118]">
+      {/* ── Close Button ── */}
+      <button
+        onClick={() => {
+          setShowAuthModal(false)
+          setCurrentView('dashboard')
+        }}
+        className="absolute top-4 sm:top-6 right-4 sm:right-6 z-[100] w-10 h-10 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-all backdrop-blur-md"
+        aria-label="Fermer"
+      >
+        <X className="w-5 h-5" />
+      </button>
+
       {/* ── Aurora Background ── */}
       <div className="absolute inset-0 z-0">
         {/* Base gradient */}
@@ -467,12 +484,16 @@ export default function AuthScreen() {
               animate="visible"
             >
               <motion.div variants={itemVariants} className="relative">
-                <div className="relative">
-                  <Sparkles className="w-8 h-8 sm:w-12 sm:h-12 text-orange-400 drop-shadow-[0_0_12px_rgba(249,115,22,0.4)]" />
+                <div className="relative z-10 flex items-center justify-center">
+                  <img 
+                    src="/icon.png" 
+                    alt="Kidenzo Logo" 
+                    className="w-12 h-12 sm:w-16 sm:h-16 object-contain drop-shadow-[0_0_15px_rgba(249,115,22,0.5)]" 
+                  />
                 </div>
                 {/* Subtle glow */}
                 <div
-                  className="absolute inset-0 w-8 h-8 sm:w-12 sm:h-12 bg-orange-400/10 rounded-full blur-xl"
+                  className="absolute inset-0 w-12 h-12 sm:w-16 sm:h-16 bg-orange-500/20 rounded-full blur-2xl"
                 />
               </motion.div>
 
@@ -506,7 +527,7 @@ export default function AuthScreen() {
                       animate={{ scale: 1, rotate: 0 }}
                       transition={{ type: 'spring', stiffness: 200, damping: 15 }}
                     >
-                      <Sparkles className="w-12 h-12 text-orange-400 mx-auto drop-shadow-[0_0_20px_rgba(249,115,22,0.6)]" />
+                      <img src="/icon.png" alt="Logo Kidenzo" className="w-16 h-16 mx-auto object-contain drop-shadow-[0_0_20px_rgba(249,115,22,0.6)]" />
                     </motion.div>
                     <motion.p className="text-3xl font-black animated-gradient-text">
                       <TypewriterText text="Bienvenue !" delay={300} />

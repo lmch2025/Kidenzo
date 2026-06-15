@@ -18,6 +18,7 @@ import {
   RefreshCw,
   X,
   Sparkles,
+  Camera,
 } from 'lucide-react'
 import { useAppStore, formatPrice, type ImportProductResult } from '@/lib/store'
 import { Button } from '@/components/ui/button'
@@ -63,6 +64,46 @@ const categoryColors: Record<string, string> = {
 
 // USD to FCFA conversion rate (approximate)
 const USD_TO_FCFA = 610
+
+// Image compression utility
+const compressImage = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let width = img.width
+        let height = img.height
+
+        const MAX_SIZE = 1080
+        if (width > height && width > MAX_SIZE) {
+          height *= MAX_SIZE / width
+          width = MAX_SIZE
+        } else if (height > MAX_SIZE) {
+          width *= MAX_SIZE / height
+          height = MAX_SIZE
+        }
+
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height)
+          // Compress to webp, 80% quality
+          const dataUrl = canvas.toDataURL('image/webp', 0.8)
+          resolve(dataUrl.split(',')[1]) // Return only base64 string
+        } else {
+          reject(new Error('Canvas context null'))
+        }
+      }
+      img.onerror = reject
+      img.src = e.target?.result as string
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
 
 function StockIndicator({ stock }: { stock: number }) {
   const color = stock > 10 ? 'bg-emerald-400' : stock > 0 ? 'bg-yellow-400' : 'bg-red-400'
@@ -158,6 +199,7 @@ export function ProductsTab() {
   const { user, products, token, addProduct, updateProductInList, setProducts, triggerConfetti } = useAppStore()
   const [isLoading, setIsLoading] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [createStep, setCreateStep] = useState(1) // 1: Info & Photo, 2: Prix & Stock, 3: Commission
   const [creating, setCreating] = useState(false)
   const [generatingMiniSite, setGeneratingMiniSite] = useState<string | null>(null)
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null)
@@ -170,6 +212,11 @@ export function ProductsTab() {
   const [formCategory, setFormCategory] = useState('autre')
   const [formStock, setFormStock] = useState('')
   const [formMaxCommission, setFormMaxCommission] = useState('40')
+  const [formCommissionPerClick, setFormCommissionPerClick] = useState('0')
+  const [formImageFiles, setFormImageFiles] = useState<File[]>([])
+  const [formImagePreviews, setFormImagePreviews] = useState<string[]>([])
+  const [formImageUrls, setFormImageUrls] = useState<string[]>([])
+  const [isUploadingImages, setIsUploadingImages] = useState(false)
 
   // Import state
   const [showImportDialog, setShowImportDialog] = useState(false)
@@ -214,12 +261,18 @@ export function ProductsTab() {
   }, [fetchProducts])
 
   const resetForm = () => {
+    setCreateStep(1)
     setFormName('')
     setFormDesc('')
     setFormPrice('')
     setFormCategory('autre')
     setFormStock('')
     setFormMaxCommission('40')
+    setFormCommissionPerClick('0')
+    setFormImageFiles([])
+    setFormImagePreviews([])
+    setFormImageUrls([])
+    setIsUploadingImages(false)
   }
 
   const resetImportForm = () => {
@@ -249,18 +302,25 @@ export function ProductsTab() {
         body: JSON.stringify({
           ownerId: userId,
           name: formName,
-          description: formDesc,
+          description: formDesc || ' ', // Fallback if empty to avoid 400 error
           basePrice: parseFloat(formPrice),
           category: formCategory,
           stock: parseInt(formStock) || 0,
           maxCommission: parseInt(formMaxCommission) || 40,
+          commissionPerClick: parseFloat(formCommissionPerClick) || 0,
+          images: formImageUrls,
         }),
       })
+      
       if (res.ok) {
         const data = await res.json()
         addProduct(data.product || data)
         setShowCreateDialog(false)
         resetForm()
+      } else {
+        const errorData = await res.json().catch(() => ({}))
+        console.error('Failed to create product in API:', errorData)
+        // Optionally show an error toast here
       }
     } catch (error) {
       console.error('Failed to create product:', error)
@@ -502,8 +562,8 @@ export function ProductsTab() {
         >
           <Package className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
           <h3 className="text-lg font-medium mb-2">Aucun produit</h3>
-          <p className="text-muted-foreground mb-4">
-            Créez votre premier produit ou importez depuis Alibaba/AliExpress
+          <p className="text-muted-foreground mb-6">
+            Commencez par importer un produit pour le vendre sur Kidenzo !
           </p>
           <div className="flex items-center justify-center gap-3 flex-wrap">
             <Button
@@ -673,126 +733,301 @@ export function ProductsTab() {
         </div>
       )}
 
-      {/* ─────── Create Product Dialog ─────── */}
+      {/* ─────── Create Product Dialog (Wizard) ─────── */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="glass-strong max-w-md">
+        <DialogContent className="glass-strong max-w-[95vw] w-full sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-xl">
           <DialogHeader>
-            <DialogTitle className="gradient-text-warm">Nouveau Produit</DialogTitle>
-            <DialogDescription>Créez un nouveau produit à vendre</DialogDescription>
+            <DialogTitle className="gradient-text-warm text-xl">Nouveau Produit</DialogTitle>
+            <DialogDescription className="font-medium text-orange-400">
+              {createStep === 1 && "Étape 1 sur 3 : Identité visuelle"}
+              {createStep === 2 && "Étape 2 sur 3 : Détails de vente"}
+              {createStep === 3 && "Étape 3 sur 3 : Rémunération"}
+            </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="name">Nom du produit</Label>
-              <Input
-                id="name"
-                placeholder="Ex: Jus de baobab"
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-                className="bg-background/50"
-              />
-            </div>
+          <div className="space-y-4 py-2 relative min-h-[350px]">
+            {createStep === 1 && (
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-4"
+              >
+                <div className="space-y-2">
+                  <Label>Photos du produit (jusqu'à 5)</Label>
+                  <div className="flex flex-col gap-2 w-full">
+                    <label htmlFor="product-image" className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer border-orange-500/30 bg-orange-500/5 hover:bg-orange-500/10 transition-colors relative overflow-hidden">
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        <Camera className="w-8 h-8 text-orange-400 mb-2" />
+                        <p className="text-sm text-muted-foreground font-medium">Appuyez pour ajouter des photos</p>
+                      </div>
+                      <input 
+                        id="product-image" 
+                        type="file" 
+                        accept="image/*" 
+                        multiple
+                        className="hidden" 
+                        onChange={async (e) => {
+                          const files = Array.from(e.target.files || [])
+                          if (files.length > 0) {
+                            // Append new files up to 5 max
+                            const currentFileCount = formImageFiles.length
+                            const newFilesToProcess = files.slice(0, 5 - currentFileCount)
+                            if (newFilesToProcess.length === 0) return
 
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                placeholder="Décrivez votre produit..."
-                value={formDesc}
-                onChange={(e) => setFormDesc(e.target.value)}
-                className="bg-background/50 resize-none"
-                rows={3}
-              />
-            </div>
+                            const newFiles = [...formImageFiles, ...newFilesToProcess]
+                            setFormImageFiles(newFiles)
+                            setFormImagePreviews(newFiles.map(f => URL.createObjectURL(f)))
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="price">Prix de base (FCFA)</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  placeholder="5000"
-                  value={formPrice}
-                  onChange={(e) => setFormPrice(e.target.value)}
-                  className="bg-background/50"
-                />
-              </div>
+                            // Process and upload immediately
+                            setIsUploadingImages(true)
+                            try {
+                              for (const file of newFilesToProcess) {
+                                const base64String = await compressImage(file)
+                                const uploadRes = await fetch('/api/upload-imgbb', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ image: base64String }),
+                                })
+                                if (uploadRes.ok) {
+                                  const uploadData = await uploadRes.json()
+                                  setFormImageUrls(prev => [...prev, uploadData.url])
+                                }
+                              }
+                            } catch (err) {
+                              console.error('Error uploading image', err)
+                            } finally {
+                              setIsUploadingImages(false)
+                            }
+                          }
+                        }}
+                      />
+                    </label>
+                    {formImagePreviews.length > 0 && (
+                      <div className="flex gap-2 overflow-x-auto pb-2">
+                        {formImagePreviews.map((preview, i) => (
+                          <div key={i} className="relative w-16 h-16 shrink-0 rounded-md overflow-hidden border border-border">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+                            <button
+                              onClick={() => {
+                                const newFiles = formImageFiles.filter((_, idx) => idx !== i)
+                                const newUrls = formImageUrls.filter((_, idx) => idx !== i)
+                                setFormImageFiles(newFiles)
+                                setFormImagePreviews(newFiles.map(f => URL.createObjectURL(f)))
+                                setFormImageUrls(newUrls)
+                              }}
+                              className="absolute top-0 right-0 bg-red-500 text-white rounded-bl-md p-0.5"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="stock">Stock</Label>
-                <Input
-                  id="stock"
-                  type="number"
-                  placeholder="100"
-                  value={formStock}
-                  onChange={(e) => setFormStock(e.target.value)}
-                  className="bg-background/50"
-                />
-              </div>
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nom du produit</Label>
+                  <Input
+                    id="name"
+                    placeholder="Ex: Chaussures de sport"
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    className="bg-background/50 text-lg py-6"
+                  />
+                </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Catégorie</Label>
-                <Select value={formCategory} onValueChange={setFormCategory}>
-                  <SelectTrigger className="w-full bg-background/50">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map((cat) => (
-                      <SelectItem key={cat.value} value={cat.value}>
-                        {cat.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">Petite description</Label>
+                  <Textarea
+                    id="description"
+                    placeholder="En quelques mots..."
+                    value={formDesc}
+                    onChange={(e) => setFormDesc(e.target.value)}
+                    className="bg-background/50 resize-none"
+                    rows={2}
+                  />
+                </div>
+              </motion.div>
+            )}
 
-              <div className="space-y-2">
-                <Label htmlFor="maxComm">Commission max (%)</Label>
-                <Input
-                  id="maxComm"
-                  type="number"
-                  min="0"
-                  max="100"
-                  placeholder="40"
-                  value={formMaxCommission}
-                  onChange={(e) => setFormMaxCommission(e.target.value)}
-                  className="bg-background/50"
-                />
-              </div>
-            </div>
+            {createStep === 2 && (
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-4"
+              >
+                <div className="space-y-2">
+                  <Label htmlFor="price">Prix de vente (FCFA)</Label>
+                  <div className="relative">
+                    <Input
+                      id="price"
+                      type="number"
+                      placeholder="5000"
+                      value={formPrice}
+                      onChange={(e) => setFormPrice(e.target.value)}
+                      className="bg-background/50 text-xl py-8 pl-14 font-bold"
+                    />
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">
+                      FCFA
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="stock">Quantité dispo</Label>
+                    <Input
+                      id="stock"
+                      type="number"
+                      placeholder="100"
+                      value={formStock}
+                      onChange={(e) => setFormStock(e.target.value)}
+                      className="bg-background/50 py-6"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Catégorie</Label>
+                    <Select value={formCategory} onValueChange={setFormCategory}>
+                      <SelectTrigger className="w-full bg-background/50 py-6">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CATEGORIES.map((cat) => (
+                          <SelectItem key={cat.value} value={cat.value}>
+                            {cat.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {createStep === 3 && (
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-6"
+              >
+                <div className="space-y-6">
+                  <div className="space-y-2 text-center">
+                    <Label htmlFor="maxComm" className="text-sm font-medium">Commission par vente (%)</Label>
+                    <div className="flex items-center justify-center gap-2">
+                      <Input
+                        id="maxComm"
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={formMaxCommission}
+                        onChange={(e) => setFormMaxCommission(e.target.value)}
+                        className="bg-background/50 text-2xl py-6 text-center font-bold text-orange-400 border-orange-500/50 w-28"
+                      />
+                      <span className="text-xl font-bold text-muted-foreground">%</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 text-center">
+                    <Label htmlFor="cpc" className="text-sm font-medium">Commission par clic (FCFA)</Label>
+                    <div className="flex items-center justify-center gap-2">
+                      <Input
+                        id="cpc"
+                        type="number"
+                        min="0"
+                        value={formCommissionPerClick}
+                        onChange={(e) => setFormCommissionPerClick(e.target.value)}
+                        className="bg-background/50 text-2xl py-6 text-center font-bold text-emerald-400 border-emerald-500/50 w-32"
+                      />
+                      <span className="text-xl font-bold text-muted-foreground">FCFA</span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground px-4">
+                      Payé au recommandeur et à l'application pour chaque clic valide (ex: 30% App, 70% Recommandeur).
+                    </p>
+                  </div>
+                </div>
+
+                {formPrice && formMaxCommission && (
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-orange-500/10 to-orange-600/10 border border-orange-500/30 flex flex-col gap-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Prix de vente public :</span>
+                      <span className="font-medium text-lg">{formatPrice(parseFloat(formPrice))}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Part du recommandeur :</span>
+                      <span className="font-bold text-lg text-orange-400">
+                        {formatPrice(parseFloat(formPrice) * (parseFloat(formMaxCommission) / 100))}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center pt-3 border-t border-orange-500/20">
+                      <span className="text-sm font-medium">Votre bénéfice net :</span>
+                      <span className="font-bold text-xl text-emerald-400">
+                        {formatPrice(parseFloat(formPrice) - (parseFloat(formPrice) * (parseFloat(formMaxCommission) / 100)))}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            )}
           </div>
 
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowCreateDialog(false)
-                resetForm()
-              }}
-            >
-              Annuler
-            </Button>
-            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+          <DialogFooter className="flex sm:justify-between items-center w-full gap-2 mt-4 flex-row justify-between">
+            {createStep > 1 ? (
               <Button
-                onClick={handleCreateProduct}
-                disabled={!formName || !formPrice || creating}
-                className="bg-gradient-to-r from-orange-500 to-orange-600 text-white"
+                variant="outline"
+                onClick={() => setCreateStep(createStep - 1)}
+                disabled={creating}
+                className="min-w-[100px]"
               >
-                {creating ? (
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                  >
-                    <Package className="w-4 h-4" />
-                  </motion.div>
-                ) : (
-                  <Plus className="w-4 h-4" />
-                )}
-                {creating ? 'Création...' : 'Créer'}
+                Précédent
               </Button>
-            </motion.div>
+            ) : (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setShowCreateDialog(false)
+                  resetForm()
+                }}
+                disabled={creating}
+              >
+                Annuler
+              </Button>
+            )}
+
+            {createStep < 3 ? (
+              <Button
+                onClick={() => setCreateStep(createStep + 1)}
+                disabled={(createStep === 1 && !formName) || (createStep === 2 && !formPrice)}
+                className="bg-primary text-primary-foreground min-w-[100px]"
+              >
+                Suivant
+              </Button>
+            ) : (
+              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                <Button
+                  onClick={handleCreateProduct}
+                  disabled={!formName || !formPrice || creating || isUploadingImages}
+                  className="bg-gradient-to-r from-orange-500 to-orange-600 text-white min-w-[120px]"
+                >
+                  {creating || isUploadingImages ? (
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                    >
+                      <Package className="w-4 h-4 mr-2" />
+                    </motion.div>
+                  ) : (
+                    <Plus className="w-4 h-4 mr-2" />
+                  )}
+                  {creating ? 'Création...' : isUploadingImages ? 'Upload...' : 'Terminer'}
+                </Button>
+              </motion.div>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -802,14 +1037,14 @@ export function ProductsTab() {
         if (!open) resetImportForm()
         setShowImportDialog(open)
       }}>
-        <DialogContent className="glass-strong max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="glass-strong !max-w-[calc(100vw-2rem)] sm:!max-w-lg max-h-[85vh] overflow-y-auto !p-3 sm:!p-6 !rounded-xl !gap-2 sm:!gap-4">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
               <span className="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">
                 Importer un produit
               </span>
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs sm:text-sm">
               Collez un lien Alibaba ou AliExpress pour importer automatiquement les données
             </DialogDescription>
           </DialogHeader>
@@ -823,24 +1058,24 @@ export function ProductsTab() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
-                className="space-y-4 py-2"
+                className="space-y-3 py-1 min-w-0 overflow-hidden"
               >
                 <div className="space-y-2">
-                  <Label htmlFor="import-url" className="flex items-center gap-1.5">
-                    <Link2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <Label htmlFor="import-url" className="flex items-center gap-1.5 text-xs sm:text-sm">
+                    <Link2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                     Lien du produit
                   </Label>
                   <div className="flex gap-2">
-                    <div className="relative flex-1">
+                    <div className="relative flex-1 min-w-0">
                       <Input
                         id="import-url"
-                        placeholder="https://www.alibaba.com/product-detail/..."
+                        placeholder="https://www.alibaba.com/..."
                         value={importUrl}
                         onChange={(e) => {
                           setImportUrl(e.target.value)
                           setImportError(null)
                         }}
-                        className="bg-background/50 pr-10 border-emerald-500/30 focus:border-emerald-500/60"
+                        className="bg-background/50 pr-10 border-emerald-500/30 focus:border-emerald-500/60 text-sm"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && importUrl.trim()) {
                             handleAnalyzeUrl()
@@ -867,7 +1102,7 @@ export function ProductsTab() {
                       <Copy className="w-4 h-4" />
                     </Button>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-[10px] sm:text-[11px] text-muted-foreground">
                     Supporte les liens Alibaba, AliExpress et 1688.com
                   </p>
                 </div>
@@ -879,11 +1114,11 @@ export function ProductsTab() {
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
-                      className="rounded-lg bg-red-500/10 border border-red-500/30 p-3 space-y-2"
+                      className="rounded-lg bg-red-500/10 border border-red-500/30 p-2.5 space-y-2"
                     >
                       <div className="flex items-start gap-2">
                         <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                        <p className="text-xs text-red-400">{importError}</p>
+                        <p className="text-xs text-red-400 min-w-0">{importError}</p>
                       </div>
                       <Button
                         variant="outline"
@@ -899,16 +1134,16 @@ export function ProductsTab() {
                 </AnimatePresence>
 
                 {/* Supported platforms hint */}
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-emerald-500/5 to-teal-500/5 border border-emerald-500/20">
-                  <div className="flex -space-x-1">
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-[8px] text-white font-bold border-2 border-background">
+                <div className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg bg-gradient-to-r from-emerald-500/5 to-teal-500/5 border border-emerald-500/20">
+                  <div className="flex -space-x-1 shrink-0">
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-[7px] sm:text-[8px] text-white font-bold border-2 border-background">
                       A
                     </div>
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center text-[8px] text-white font-bold border-2 border-background">
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center text-[7px] sm:text-[8px] text-white font-bold border-2 border-background">
                       AE
                     </div>
                   </div>
-                  <p className="text-[11px] text-muted-foreground flex-1">
+                  <p className="text-[10px] sm:text-[11px] text-muted-foreground flex-1 min-w-0">
                     Les données seront extraites automatiquement : nom, prix, description, images
                   </p>
                 </div>
@@ -936,100 +1171,100 @@ export function ProductsTab() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.3 }}
-                className="space-y-4 py-2"
+                className="space-y-3 py-1 min-w-0 overflow-hidden"
               >
                 {/* Success indicator */}
                 <motion.div
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-                  className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30"
+                  className="flex items-center gap-2 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30"
                 >
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ delay: 0.1, type: 'spring', stiffness: 300 }}
-                    className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center"
+                    className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-emerald-500 flex items-center justify-center shrink-0"
                   >
-                    <Check className="w-3.5 h-3.5 text-white" />
+                    <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white" />
                   </motion.div>
-                  <p className="text-xs text-emerald-400 font-medium">
-                    Produit analysé avec succès ! Vérifiez et modifiez les informations ci-dessous.
+                  <p className="text-[10px] sm:text-xs text-emerald-400 font-medium min-w-0">
+                    Analysé avec succès ! Vérifiez et modifiez les infos ci-dessous.
                   </p>
                 </motion.div>
 
                 {/* Product Name */}
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <Label htmlFor="import-name" className="text-xs">Nom du produit</Label>
                   <Input
                     id="import-name"
                     value={importFormName}
                     onChange={(e) => setImportFormName(e.target.value)}
-                    className="bg-background/50"
+                    className="bg-background/50 text-sm h-9"
                   />
                 </div>
 
                 {/* Description */}
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <Label htmlFor="import-desc" className="text-xs">Description</Label>
                   <Textarea
                     id="import-desc"
                     value={importFormDesc}
                     onChange={(e) => setImportFormDesc(e.target.value)}
-                    className="bg-background/50 resize-none"
-                    rows={3}
+                    className="bg-background/50 resize-none text-sm"
+                    rows={2}
                   />
                 </div>
 
-                {/* Price + Category + Stock */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="import-price" className="text-xs">Prix (FCFA)</Label>
-                    <Input
-                      id="import-price"
-                      type="number"
-                      value={importFormPrice}
-                      onChange={(e) => setImportFormPrice(e.target.value)}
-                      className="bg-background/50"
-                    />
-                    {importedData.price > 0 && (
-                      <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                        <span className="text-emerald-400">≈ {importedData.price} USD</span>
-                        · Auto-converti (1 USD ≈ {USD_TO_FCFA} FCFA)
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-xs">Catégorie</Label>
-                    <Select value={importFormCategory} onValueChange={setImportFormCategory}>
-                      <SelectTrigger className="w-full bg-background/50">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CATEGORIES.map((cat) => (
-                          <SelectItem key={cat.value} value={cat.value}>
-                            {cat.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                {/* Price */}
+                <div className="space-y-1">
+                  <Label htmlFor="import-price" className="text-xs">Prix (FCFA)</Label>
+                  <Input
+                    id="import-price"
+                    type="number"
+                    value={importFormPrice}
+                    onChange={(e) => setImportFormPrice(e.target.value)}
+                    className="bg-background/50 text-sm h-9"
+                  />
+                  {importedData.price > 0 && (
+                    <p className="text-[10px] text-muted-foreground">
+                      <span className="text-emerald-400">≈ {importedData.price} USD</span>
+                      {' '}· 1 USD ≈ {USD_TO_FCFA} FCFA
+                    </p>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="space-y-2">
+                {/* Category */}
+                <div className="space-y-1">
+                  <Label className="text-xs">Catégorie</Label>
+                  <Select value={importFormCategory} onValueChange={setImportFormCategory}>
+                    <SelectTrigger className="w-full bg-background/50 h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIES.map((cat) => (
+                        <SelectItem key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Stock + Commission */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
                     <Label htmlFor="import-stock" className="text-xs">Stock</Label>
                     <Input
                       id="import-stock"
                       type="number"
                       value={importFormStock}
                       onChange={(e) => setImportFormStock(e.target.value)}
-                      className="bg-background/50"
+                      className="bg-background/50 text-sm h-9"
                     />
                   </div>
-                  <div className="space-y-2 col-span-2">
-                    <Label htmlFor="import-maxcomm" className="text-xs">Commission max (%)</Label>
+                  <div className="space-y-1">
+                    <Label htmlFor="import-maxcomm" className="text-xs">Commission (%)</Label>
                     <Input
                       id="import-maxcomm"
                       type="number"
@@ -1037,28 +1272,28 @@ export function ProductsTab() {
                       max="100"
                       value={importFormMaxCommission}
                       onChange={(e) => setImportFormMaxCommission(e.target.value)}
-                      className="bg-background/50"
+                      className="bg-background/50 text-sm h-9"
                     />
                   </div>
                 </div>
 
                 {/* Image Gallery */}
                 {importedData.images.length > 0 && (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5 min-w-0 overflow-hidden">
                     <Label className="text-xs flex items-center gap-1.5">
-                      <ImageIcon className="w-3.5 h-3.5 text-emerald-400" />
-                      Images ({importSelectedImages.size}/{importedData.images.length} sélectionnées)
+                      <ImageIcon className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span>Images ({importSelectedImages.size}/{importedData.images.length})</span>
                     </Label>
-                    <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 max-h-48 overflow-y-auto p-1">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-36 overflow-y-auto">
                       {importedData.images.map((imgUrl, idx) => (
                         <motion.div
                           key={idx}
                           initial={{ opacity: 0, scale: 0.8 }}
                           animate={{ opacity: 1, scale: 1 }}
                           transition={{ delay: idx * 0.05 }}
-                          className={`relative group rounded-lg overflow-hidden border-2 cursor-pointer aspect-square transition-all duration-200 ${
+                          className={`relative group rounded-md overflow-hidden border-2 cursor-pointer aspect-square transition-all duration-200 ${
                             importSelectedImages.has(idx)
-                              ? 'border-emerald-500 shadow-md shadow-emerald-500/20'
+                              ? 'border-emerald-500 shadow-sm shadow-emerald-500/20'
                               : 'border-border/50 opacity-50 hover:opacity-80'
                           }`}
                           onClick={() => toggleImageSelection(idx)}
@@ -1080,14 +1315,14 @@ export function ProductsTab() {
                             />
                           </div>
                           {idx === 0 && importSelectedImages.has(idx) && (
-                            <Badge className="absolute top-0.5 left-0.5 text-[8px] px-1 py-0 bg-emerald-500 text-white border-0">
-                              Principal
+                            <Badge className="absolute top-0 left-0 text-[7px] px-0.5 py-0 bg-emerald-500 text-white border-0 rounded-none rounded-br-md">
+                              1ère
                             </Badge>
                           )}
                         </motion.div>
                       ))}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-1.5">
                       <Button
                         variant="outline"
                         size="sm"
@@ -1110,22 +1345,22 @@ export function ProductsTab() {
 
                 {/* Weight & Dimensions (read-only) */}
                 {(importedData.weight || importedData.dimensions) && (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2">
                     {importedData.weight && (
-                      <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/30 border border-border/30">
-                        <Weight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                        <div>
-                          <p className="text-[10px] text-muted-foreground">Poids</p>
-                          <p className="text-xs font-medium">{importedData.weight}</p>
+                      <div className="flex items-center gap-1.5 p-2 rounded-lg bg-muted/30 border border-border/30 min-w-0">
+                        <Weight className="w-3 h-3 text-muted-foreground shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-[9px] text-muted-foreground">Poids</p>
+                          <p className="text-[11px] font-medium truncate">{importedData.weight}</p>
                         </div>
                       </div>
                     )}
                     {importedData.dimensions && (
-                      <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/30 border border-border/30">
-                        <Ruler className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                        <div>
-                          <p className="text-[10px] text-muted-foreground">Dimensions</p>
-                          <p className="text-xs font-medium">{importedData.dimensions}</p>
+                      <div className="flex items-center gap-1.5 p-2 rounded-lg bg-muted/30 border border-border/30 min-w-0">
+                        <Ruler className="w-3 h-3 text-muted-foreground shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-[9px] text-muted-foreground">Dimensions</p>
+                          <p className="text-[11px] font-medium truncate">{importedData.dimensions}</p>
                         </div>
                       </div>
                     )}
@@ -1134,11 +1369,11 @@ export function ProductsTab() {
 
                 {/* Source URL (read-only) */}
                 {importedData.sourceUrl && (
-                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/30 border border-border/30">
-                    <Link2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <div className="flex items-center gap-1.5 p-2 rounded-lg bg-muted/30 border border-border/30 min-w-0">
+                    <Link2 className="w-3 h-3 text-muted-foreground shrink-0" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-[10px] text-muted-foreground">Source</p>
-                      <p className="text-xs truncate">{importedData.sourceUrl}</p>
+                      <p className="text-[9px] text-muted-foreground">Source</p>
+                      <p className="text-[11px] truncate">{importedData.sourceUrl}</p>
                     </div>
                   </div>
                 )}
@@ -1146,7 +1381,7 @@ export function ProductsTab() {
             )}
           </AnimatePresence>
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="!flex-col gap-2 sm:!flex-row mt-1 sm:mt-2">
             {!importedData && !importLoading && (
               <>
                 <Button
@@ -1155,19 +1390,18 @@ export function ProductsTab() {
                     setShowImportDialog(false)
                     resetImportForm()
                   }}
+                  className="w-full sm:w-auto order-2 sm:order-1"
                 >
                   Annuler
                 </Button>
-                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                  <Button
-                    onClick={handleAnalyzeUrl}
-                    disabled={!importUrl.trim()}
-                    className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
-                  >
-                    <Link2 className="w-4 h-4" />
-                    Analyser le lien
-                  </Button>
-                </motion.div>
+                <Button
+                  onClick={handleAnalyzeUrl}
+                  disabled={!importUrl.trim()}
+                  className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white w-full sm:w-auto order-1 sm:order-2"
+                >
+                  <Link2 className="w-4 h-4" />
+                  Analyser le lien
+                </Button>
               </>
             )}
 
@@ -1178,6 +1412,7 @@ export function ProductsTab() {
                   setImportLoading(false)
                   setImportError(null)
                 }}
+                className="w-full sm:w-auto"
               >
                 Annuler
               </Button>
@@ -1191,29 +1426,28 @@ export function ProductsTab() {
                     setImportedData(null)
                     setImportError(null)
                   }}
+                  className="w-full sm:w-auto order-2 sm:order-1"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   Nouvelle analyse
                 </Button>
-                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                  <Button
-                    onClick={handleCreateImportedProduct}
-                    disabled={!importFormName || !importFormPrice || importCreating}
-                    className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
-                  >
-                    {importCreating ? (
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                      >
-                        <Package className="w-4 h-4" />
-                      </motion.div>
-                    ) : (
-                      <Sparkles className="w-4 h-4" />
-                    )}
-                    {importCreating ? 'Création...' : 'Créer le produit'}
-                  </Button>
-                </motion.div>
+                <Button
+                  onClick={handleCreateImportedProduct}
+                  disabled={!importFormName || !importFormPrice || importCreating}
+                  className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white w-full sm:w-auto order-1 sm:order-2"
+                >
+                  {importCreating ? (
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                    >
+                      <Package className="w-4 h-4" />
+                    </motion.div>
+                  ) : (
+                    <Sparkles className="w-4 h-4" />
+                  )}
+                  {importCreating ? 'Création...' : 'Créer le produit'}
+                </Button>
               </>
             )}
           </DialogFooter>

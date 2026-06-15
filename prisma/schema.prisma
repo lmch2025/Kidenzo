@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("POSTGRES_PRISMA_URL")
-  directUrl = env("POSTGRES_URL_NON_POOLING")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -43,6 +42,7 @@ model User {
   rewards             UserReward[]
   clickEvents         ClickEvent[]
   suspiciousActivities SuspiciousActivity[]
+  withdrawalRequests   WithdrawalRequest[]
 }
 
 model Product {
@@ -56,6 +56,7 @@ model Product {
   stock       Int      @default(0)
   status      String   @default("active") // active, inactive
   maxCommission Int    @default(40)
+  commissionPerClick Float @default(0)
   weight      String   @default("") // e.g. "500g", "1.2kg"
   dimensions  String   @default("") // e.g. "30x20x10cm"
   sourceUrl   String?  // Original Alibaba/AliExpress URL
@@ -79,6 +80,7 @@ model MiniSite {
   productId String   @unique
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   slug      String   @unique
+  marketingPitch String?
   createdAt DateTime @default(now())
 
   recommenderProducts RecommenderProduct[]
@@ -127,6 +129,19 @@ model CommissionPayment {
   beneficiary   User     @relation(fields: [beneficiaryId], references: [id])
   amount        Float
   paidAt        DateTime @default(now())
+}
+
+model WithdrawalRequest {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  amount        Float
+  paymentMethod String   @default("mobile_money")
+  phoneNumber   String   // Numéro Mobile Money
+  status        String   @default("pending") // pending, approved, rejected, paid
+  adminNotes    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model Badge {

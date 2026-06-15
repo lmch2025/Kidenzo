@@ -60,6 +60,10 @@ const ClicksTab = dynamic(() => import('@/components/ClicksTab').then(m => ({ de
   ssr: false,
   loading: () => <TabLoadingFallback />,
 })
+const WalletTab = dynamic(() => import('@/components/WalletTab').then(m => ({ default: m.WalletTab })), {
+  ssr: false,
+  loading: () => <TabLoadingFallback />,
+})
 const AdminPanel = dynamic(() => import('@/components/admin/AdminPanel').then(m => ({ default: m.AdminPanel })), {
   ssr: false,
   loading: () => <TabLoadingFallback />,
@@ -88,6 +92,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'overview', label: "Vue d'ensemble", shortLabel: 'Accueil', icon: LayoutDashboard, roles: ['owner', 'ambassador', 'recommender'], section: 'principal' },
   { id: 'products', label: 'Produits', icon: Package, roles: ['owner'], section: 'principal' },
   { id: 'orders', label: 'Commandes', icon: ShoppingCart, roles: ['owner', 'ambassador', 'recommender'], section: 'principal' },
+  { id: 'withdrawals', label: 'Portefeuille', shortLabel: 'Portefeuille', icon: Coins, roles: ['owner', 'ambassador', 'recommender'], section: 'principal' },
   { id: 'clicks', label: 'Clics Rémunérés', shortLabel: 'Clics', icon: MousePointerClick, roles: ['recommender'], section: 'outils' },
   { id: 'recommender', label: 'Recommandeur', icon: Share2, roles: ['recommender'], section: 'outils' },
   { id: 'ambassador', label: 'Ambassadeur', icon: Users, roles: ['ambassador'], section: 'outils' },
@@ -124,13 +129,16 @@ const BOTTOM_NAV_ITEMS: Record<UserRole, Array<NavItem | 'more'>> = {
 // Overflow items per role (items NOT in the bottom nav 5)
 const OVERFLOW_ITEMS: Record<UserRole, NavItem[]> = {
   owner: [
+    { id: 'withdrawals', label: 'Portefeuille', icon: Coins, roles: ['owner'] },
     { id: 'admin', label: 'Administration', icon: Shield, roles: ['owner'] },
     { id: 'leaderboard', label: 'Classement', icon: Crown, roles: ['owner'] },
   ],
   ambassador: [
+    { id: 'withdrawals', label: 'Portefeuille', icon: Coins, roles: ['ambassador'] },
     { id: 'leaderboard', label: 'Classement', icon: Crown, roles: ['ambassador'] },
   ],
   recommender: [
+    { id: 'withdrawals', label: 'Portefeuille', icon: Coins, roles: ['recommender'] },
     { id: 'recommender', label: 'Recommandeur', icon: Share2, roles: ['recommender'] },
     { id: 'leaderboard', label: 'Classement', icon: Crown, roles: ['recommender'] },
   ],
@@ -139,7 +147,6 @@ const OVERFLOW_ITEMS: Record<UserRole, NavItem[]> = {
 // Visitor nav items
 const VISITOR_NAV_ITEMS: NavItem[] = [
   { id: 'overview', label: "Accueil", icon: LayoutDashboard, roles: [], section: 'principal' },
-  { id: 'products', label: 'Produits', icon: Package, roles: [], section: 'principal' },
   { id: 'orders', label: 'Commandes', icon: ShoppingCart, roles: [], section: 'principal' },
   { id: 'gamification', label: 'Succès', icon: Trophy, roles: [], section: 'progression' },
   { id: 'leaderboard', label: 'Classement', icon: Crown, roles: [], section: 'progression' },
@@ -147,7 +154,6 @@ const VISITOR_NAV_ITEMS: NavItem[] = [
 
 const VISITOR_BOTTOM_NAV_ITEMS: Array<NavItem | 'more'> = [
   { id: 'overview', label: 'Accueil', icon: LayoutDashboard, roles: [] },
-  { id: 'products', label: 'Produits', icon: Package, roles: [] },
   { id: 'orders', label: 'Commandes', icon: ShoppingCart, roles: [] },
   { id: 'gamification', label: 'Succès', icon: Trophy, roles: [] },
   'more',
@@ -161,12 +167,13 @@ const TAB_INDEX: Record<DashboardTab, number> = {
   overview: 0,
   products: 1,
   orders: 2,
-  clicks: 3,
-  recommender: 4,
-  ambassador: 5,
-  admin: 6,
-  gamification: 7,
-  leaderboard: 8,
+  withdrawals: 3,
+  clicks: 4,
+  recommender: 5,
+  ambassador: 6,
+  admin: 7,
+  gamification: 8,
+  leaderboard: 9,
 }
 
 const roleBadgeColors: Record<UserRole, string> = {
@@ -240,6 +247,7 @@ function MoreMenu({
   onLogout,
   onCatalog,
   currentTab,
+  currentView
 }: {
   isOpen: boolean
   onClose: () => void
@@ -248,6 +256,7 @@ function MoreMenu({
   onLogout: () => void
   onCatalog: () => void
   currentTab: DashboardTab
+  currentView: string
 }) {
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -306,7 +315,7 @@ function MoreMenu({
               {/* Menu items */}
               <div className="px-4 pb-2 space-y-1">
                 {overflowItems.map((item) => {
-                  const isActive = currentTab === item.id
+                  const isActive = currentView === 'dashboard' && currentTab === item.id
                   const Icon = item.icon
                   return (
                     <motion.button
@@ -337,10 +346,14 @@ function MoreMenu({
                 <motion.button
                   whileTap={{ scale: 0.97 }}
                   onClick={() => { onCatalog(); onClose() }}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-orange-400 hover:bg-orange-500/5 transition-all"
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
+                    currentView === 'public'
+                      ? 'text-white bg-gradient-to-r from-orange-500/80 to-pink-500/80 shadow-lg shadow-orange-500/20'
+                      : 'text-muted-foreground hover:text-orange-400 hover:bg-orange-500/5'
+                  }`}
                 >
                   <Store className="w-5 h-5" />
-                  <span>Catalogue public</span>
+                  <span>Explorer les produits</span>
                 </motion.button>
                 <motion.button
                   whileTap={{ scale: 0.97 }}
@@ -363,7 +376,7 @@ function MoreMenu({
 }
 
 export function DashboardLayout() {
-  const { user, isAuthenticated, dashboardTab, setDashboardTab, logout, gamificationData, setCurrentView, setShowAuthModal } = useAppStore()
+  const { user, isAuthenticated, dashboardTab, setDashboardTab, logout, gamificationData, currentView, setCurrentView, setShowAuthModal } = useAppStore()
   const [prevTabIndex, setPrevTabIndex] = useState(0)
   const [progressAnimated, setProgressAnimated] = useState(false)
   const [moreMenuOpen, setMoreMenuOpen] = useState(false)
@@ -408,9 +421,12 @@ export function DashboardLayout() {
   }, {})
 
   const renderTab = () => {
+    if (currentView === 'public') {
+      return <PublicProductsPage />
+    }
+
     if (!isAuthenticated) {
-      // Pour les visiteurs, seul l'aperçu/catalogue est accessible publiquement via le layout.
-      // Les autres clics déclenchent l'authentification.
+      // Fallback for visitors if currentView isn't 'public'
       if (dashboardTab === 'overview') {
         return <PublicProductsPage />
       }
@@ -433,9 +449,11 @@ export function DashboardLayout() {
       case 'admin':
         return <AdminPanel />
       case 'gamification':
-        return <GamificationPanel />
+        return <GamificationPanel initialTab="succes" />
       case 'leaderboard':
-        return <GamificationPanel />
+        return <GamificationPanel initialTab="classement" />
+      case 'withdrawals':
+        return <WalletTab />
       default:
         return <OverviewTab />
     }
@@ -449,8 +467,11 @@ export function DashboardLayout() {
       return
     }
     setDashboardTab(tab)
+    if (currentView === 'public') {
+      setCurrentView('dashboard')
+    }
     setMoreMenuOpen(false)
-  }, [isAuthenticated, setDashboardTab, setShowAuthModal, setCurrentView])
+  }, [isAuthenticated, setDashboardTab, setShowAuthModal, currentView, setCurrentView])
 
   return (
     <div className="h-[100dvh] flex flex-col bg-background animated-gradient-bg relative overflow-hidden">
@@ -480,9 +501,11 @@ export function DashboardLayout() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 via-pink-500 to-purple-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
-              <Sparkles className="w-4.5 h-4.5 text-white" />
-            </div>
+            <img 
+              src="/icon.png" 
+              alt="Kidenzo Logo" 
+              className="w-10 h-10 object-contain drop-shadow-md" 
+            />
             <span className="font-bold text-lg gradient-text-warm hidden sm:block">Kidenzo</span>
           </motion.div>
 
@@ -566,7 +589,7 @@ export function DashboardLayout() {
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex max-w-6xl mx-auto w-full relative z-10">
+      <div className="flex-1 flex max-w-6xl mx-auto w-full relative z-10 min-h-0">
         {/* Desktop Side Nav */}
         <nav className="hidden md:flex flex-col w-56 shrink-0 p-4 gap-1 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
           {Object.entries(sections).map(([sectionKey, items], sectionIdx) => {
@@ -583,7 +606,7 @@ export function DashboardLayout() {
                 )}
                 <div className="space-y-1">
                   {items.map((item) => {
-                    const isActive = dashboardTab === item.id
+                    const isActive = currentView === 'dashboard' && dashboardTab === item.id
                     const Icon = item.icon
                     return (
                       <motion.div
@@ -637,13 +660,16 @@ export function DashboardLayout() {
             <motion.button
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => {
-                setDashboardTab('overview')
-              }}
-              className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-orange-400 hover:bg-orange-500/5 transition-all w-full"
+              onClick={() => setCurrentView('public')}
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all w-full relative overflow-hidden ${
+                currentView === 'public'
+                  ? 'text-white bg-gradient-to-r from-orange-500/80 to-pink-500/80 shadow-lg shadow-orange-500/20'
+                  : 'text-muted-foreground hover:text-orange-400 hover:bg-orange-500/5'
+              }`}
             >
-              <Store className="w-5 h-5" />
-              <span>Catalogue public</span>
+              {currentView === 'public' && <div className="absolute inset-0 bg-white/20 hover:bg-transparent transition-colors" />}
+              <Store className="w-5 h-5 relative z-10" />
+              <span className="relative z-10">Explorer les produits</span>
             </motion.button>
             {isAuthenticated ? (
               <motion.button
@@ -676,7 +702,7 @@ export function DashboardLayout() {
         <main className="flex-1 p-4 pb-28 md:pb-4 overflow-y-auto">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
-              key={dashboardTab}
+              key={currentView === 'public' ? 'public' : dashboardTab}
               initial={{ opacity: 0, x: direction * 40, filter: 'blur(4px)' }}
               animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
               exit={{ opacity: 0, x: direction * -40, filter: 'blur(4px)' }}
@@ -748,7 +774,7 @@ export function DashboardLayout() {
 
               // Normal nav item
               const navItem = item as NavItem
-              const isActive = dashboardTab === navItem.id
+              const isActive = currentView === 'dashboard' && dashboardTab === navItem.id
               const Icon = navItem.icon
               const displayLabel = navItem.shortLabel || navItem.label
 
@@ -809,6 +835,7 @@ export function DashboardLayout() {
         onLogout={logout}
         onCatalog={() => setCurrentView('public')}
         currentTab={dashboardTab}
+        currentView={currentView}
       />
     </div>
   )

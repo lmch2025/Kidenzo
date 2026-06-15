@@ -484,6 +484,16 @@ export function OverviewTab() {
                   Mes Commandes
                 </Button>
               </motion.div>
+              <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
+                <Button
+                  onClick={() => setDashboardTab('withdrawals')}
+                  variant="outline"
+                  className="border-yellow-500/30 hover:bg-yellow-500/10 hover:border-yellow-500/50 transition-all"
+                >
+                  <Coins className="w-4 h-4 mr-1.5" />
+                  Mon Portefeuille
+                </Button>
+              </motion.div>
             </>
           )}
           {userRole === 'ambassador' && (
@@ -506,6 +516,16 @@ export function OverviewTab() {
                 >
                   <ShoppingCart className="w-4 h-4 mr-1.5" />
                   Voir Commandes
+                </Button>
+              </motion.div>
+              <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
+                <Button
+                  onClick={() => setDashboardTab('withdrawals')}
+                  variant="outline"
+                  className="border-yellow-500/30 hover:bg-yellow-500/10 hover:border-yellow-500/50 transition-all"
+                >
+                  <Coins className="w-4 h-4 mr-1.5" />
+                  Mon Portefeuille
                 </Button>
               </motion.div>
             </>

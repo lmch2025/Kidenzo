@@ -834,7 +834,7 @@ export default function MiniSiteView({ slug }: MiniSiteViewProps) {
             transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
             className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-pink-500 flex items-center justify-center"
           >
-            <Sparkles className="w-8 h-8 text-white" />
+            <img src="/icon.png" alt="Loading" className="w-10 h-10 object-contain drop-shadow-md" />
           </motion.div>
           <p className="text-white/40 text-sm">Chargement du produit...</p>
         </motion.div>

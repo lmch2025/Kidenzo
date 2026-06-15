@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,13 +14,26 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  themeColor: "#0f172a",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false, // Important for app-like feel
+};
+
 export const metadata: Metadata = {
   title: "Kidenzo - La plateforme de recommandation",
   description: "Recommandez des produits et gagnez de l'argent avec Kidenzo.",
   keywords: ["Kidenzo", "ecommerce", "recommandation", "affiliation", "gagner de l'argent"],
   authors: [{ name: "Kidenzo Team" }],
-  icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Kidenzo",
+  },
+  formatDetection: {
+    telephone: false,
   },
   openGraph: {
     title: "Kidenzo",
@@ -41,11 +55,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="fr" suppressHydrationWarning>
+      <head>
+        {/* Serwist handles offline gracefully, we don't need manual meta tags for that */}
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
         {children}
+        <PwaInstallPrompt />
         <Toaster />
       </body>
     </html>

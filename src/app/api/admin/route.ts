@@ -1208,6 +1208,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ user, banned: isBanned, reason: reason || '' })
     }
 
+    // ─── Update system setting ───────────────────────────────────
+    if (action === 'update-system-setting') {
+      const { key, value } = body
+      if (!key || value === undefined) {
+        return NextResponse.json({ error: 'key and value are required' }, { status: 400 })
+      }
+
+      const updated = await db.systemConfig.upsert({
+        where: { key },
+        update: { value: String(value) },
+        create: { key, value: String(value) },
+      })
+
+      return NextResponse.json({ setting: updated })
+    }
+
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
   } catch (error) {
     console.error('Admin POST error:', error)

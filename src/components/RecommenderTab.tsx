@@ -813,7 +813,7 @@ function MarketingShareModal({
 
 // ─── Main RecommenderTab Component ───────────────────────────────
 export function RecommenderTab() {
-  const { user, recommenderProducts, token, setRecommenderProducts } = useAppStore()
+  const { user, recommenderProducts, token, setRecommenderProducts, setCurrentView } = useAppStore()
   const [isLoading, setIsLoading] = useState(true)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [localCommissions, setLocalCommissions] = useState<Record<string, number>>({})
@@ -999,9 +999,16 @@ export function RecommenderTab() {
         >
           <Share2 className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
           <h3 className="text-lg font-medium mb-2">Aucun produit partagé</h3>
-          <p className="text-muted-foreground">
-            Partagez des produits pour commencer à gagner des commissions
+          <p className="text-muted-foreground mb-6">
+            Partagez des produits pour commencer à gagner des commissions !
           </p>
+          <Button
+            onClick={() => setCurrentView('public')}
+            className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white shadow-lg shadow-orange-500/20"
+          >
+            <Package className="w-4 h-4 mr-2" />
+            Explorer les produits à recommander
+          </Button>
         </motion.div>
       ) : (
         <div className="space-y-4">

@@ -1,5 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-import ZAI from 'z-ai-web-dev-sdk'
+
+const FREE_MODELS = [
+  'openai/gpt-oss-120b:free',
+  'openai/gpt-oss-20b:free',
+  'google/gemma-4-31b-it:free',
+  'nvidia/nemotron-3-nano-30b-a3b:free',
+  'google/gemma-4-26b-a4b-it:free',
+  'qwen/qwen3-next-80b-a3b-instruct:free',
+  'cognitivecomputations/dolphin-mistral-24b-venice-edition:free'
+]
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
 
 // POST /api/import-product - Import product data from Alibaba/AliExpress URL
 export async function POST(request: NextRequest) {
@@ -29,18 +47,27 @@ export async function POST(request: NextRequest) {
     const isAlibaba = hostname.includes('alibaba') || hostname.includes('aliexpress') || hostname.includes('1688')
 
     // Step 1: Read the web page content
-    const zai = await ZAI.create()
-    const pageResult = await zai.functions.invoke('page_reader', { url })
+    let pageHtml = ''
+    let pageTitle = ''
 
-    if (!pageResult?.data?.html && !pageResult?.data?.title) {
+    try {
+      const fetchRes = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+      })
+      if (!fetchRes.ok) throw new Error('Fetch failed')
+      pageHtml = await fetchRes.text()
+
+      const titleMatch = pageHtml.match(/<title[^>]*>([^<]+)<\/title>/i)
+      pageTitle = titleMatch ? titleMatch[1].trim() : ''
+    } catch (err) {
+      console.warn("Fetch failed, continuing with empty HTML", err)
       return NextResponse.json(
-        { error: 'Impossible de lire le contenu de cette page. Vérifiez l\'URL.' },
+        { error: 'Impossible de lire le contenu de cette page. Vérifiez l\'URL ou essayez un autre site.' },
         { status: 422 }
       )
     }
-
-    const pageTitle = pageResult.data.title || ''
-    const pageHtml = pageResult.data.html || ''
 
     // Extract plain text for LLM processing (limit to avoid token limits)
     const plainText = pageHtml
@@ -60,7 +87,13 @@ export async function POST(request: NextRequest) {
     const allImages: string[] = []
     let imgMatch
     while ((imgMatch = imgRegex.exec(pageHtml)) !== null) {
-      const imgUrl = imgMatch[1]
+      let imgUrl = imgMatch[1]
+      
+      // Handle protocol-relative URLs used by Alibaba
+      if (imgUrl.startsWith('//')) {
+        imgUrl = 'https:' + imgUrl
+      }
+
       // Filter out tiny icons, logos, and non-product images
       if (
         imgUrl.startsWith('http') &&
@@ -83,12 +116,13 @@ export async function POST(request: NextRequest) {
     const uniqueImages = [...new Set(allImages)].slice(0, 10)
 
     // Step 2: Use LLM to extract structured product data
-    const systemPrompt = `Tu es un assistant spécialisé dans l'extraction de données produit depuis des sites e-commerce (Alibaba, AliExpress, etc.). 
-Tu dois extraire les informations suivantes du texte fourni et les retourner UNIQUEMENT au format JSON valide, sans aucun texte supplémentaire :
+    const systemPrompt = `Tu es un copywriter d'élite spécialisé dans le e-commerce africain.
+Ta mission est d'extraire les données d'une page produit (Alibaba, etc.) et de réécrire complètement le titre et la description pour les rendre irrésistibles à l'achat.
+Tu dois retourner UNIQUEMENT un JSON valide, sans aucun texte supplémentaire :
 {
-  "name": "Nom du produit (en français si possible, sinon en anglais)",
-  "description": "Description détaillée du produit en français, 2-3 phrases accrocheuses pour la vente",
-  "price": nombre (prix en USD, convertir si nécessaire, sans symbole),
+  "name": "Nouveau titre accrocheur et court (en français)",
+  "description": "Nouveau texte de vente persuasif, émotionnel et très vendeur (3-4 phrases). Donne envie d'acheter immédiatement.",
+  "price": nombre (prix original en USD, convertir si nécessaire, sans symbole),
   "category": "alimentation|textile|boisson|electronique|beaute|autre",
   "weight": "Poids avec unité (ex: 500g, 1.2kg) ou chaîne vide si inconnu",
   "dimensions": "Dimensions LxLxH avec unité (ex: 30x20x10cm) ou chaîne vide si inconnu"
@@ -98,21 +132,57 @@ Règles:
 - Le prix doit être un nombre (float), en dollars US si indiqué
 - La catégorie doit correspondre à l'une des valeurs listées
 - Si une information n'est pas trouvée, utilise une valeur par défaut raisonnable
-- La description doit être vendeuse et en français
 - Réponds UNIQUEMENT avec le JSON, aucun texte avant ou après`
 
-    const completion = await zai.chat.completions.create({
-      messages: [
-        { role: 'assistant', content: systemPrompt },
-        {
-          role: 'user',
-          content: `Voici le contenu d'une page produit ${isAlibaba ? 'Alibaba/AliExpress' : 'e-commerce'}:\n\nTitre: ${pageTitle}\n\nContenu:\n${plainText}\n\nExtrais les données produit au format JSON demandé.`
-        }
-      ],
-      thinking: { type: 'disabled' }
-    })
+    const apiKey = process.env.OPENROUTER_API_KEY
+    if (!apiKey) {
+      throw new Error('OPENROUTER_API_KEY is missing from environment variables')
+    }
 
-    const llmResponse = completion.choices[0]?.message?.content || ''
+    const modelQueue = shuffle(FREE_MODELS)
+    let llmResponse = ''
+
+    for (const model of modelQueue) {
+      try {
+        const openRouterRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://recopay.com", // Replace with your actual domain
+            "X-Title": "RecoPay"
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              {
+                role: 'user',
+                content: `Voici le contenu d'une page produit ${isAlibaba ? 'Alibaba/AliExpress' : 'e-commerce'}:\n\nTitre: ${pageTitle}\n\nContenu:\n${plainText}\n\nExtrais les données produit au format JSON demandé.`
+              }
+            ]
+          })
+        })
+
+        if (!openRouterRes.ok) {
+          throw new Error(`OpenRouter API error: ${openRouterRes.status}`)
+        }
+
+        const completion = await openRouterRes.json()
+        const text = completion.choices?.[0]?.message?.content || ''
+        
+        if (text && text.length > 10) {
+          llmResponse = text
+          break
+        }
+      } catch (err) {
+        console.warn(`[import-product] Model ${model} failed:`, err)
+      }
+    }
+
+    if (!llmResponse) {
+      throw new Error('All fallback models failed to generate response.')
+    }
 
     // Parse the LLM response as JSON
     let productData: Record<string, unknown>

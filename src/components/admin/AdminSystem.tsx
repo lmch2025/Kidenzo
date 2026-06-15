@@ -112,6 +112,24 @@ const settingsConfig: SettingField[] = [
     icon: Zap,
     iconColor: 'text-yellow-400',
   },
+  {
+    key: 'recommender_commission_proportion',
+    label: 'Proportion Commission Recommandeur (%)',
+    type: 'number',
+    placeholder: '70',
+    defaultValue: '70',
+    icon: Percent,
+    iconColor: 'text-rose-400',
+  },
+  {
+    key: 'min_withdrawal_amount',
+    label: 'Montant Minimum de Retrait (FCFA)',
+    type: 'number',
+    placeholder: '2000',
+    defaultValue: '2000',
+    icon: DollarSign,
+    iconColor: 'text-orange-400',
+  },
 ]
 
 // ─── Model display config ───────────────────────────────────────────

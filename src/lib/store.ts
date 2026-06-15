@@ -19,6 +19,7 @@ export interface User {
   lastActiveAt: string
   createdAt: string
   updatedAt: string
+  clickEarnings?: number
 }
 
 export interface Product {
@@ -31,6 +32,7 @@ export interface Product {
   stock: number
   status: string
   maxCommission: number
+  recommenderMaxCommission?: number
   weight: string
   dimensions: string
   sourceUrl: string | null
@@ -276,7 +278,7 @@ export interface SuspiciousActivityData {
 }
 
 export type AppView = 'public' | 'auth' | 'dashboard' | 'mini-site'
-export type DashboardTab = 'overview' | 'products' | 'orders' | 'recommender' | 'ambassador' | 'gamification' | 'leaderboard' | 'clicks' | 'admin'
+export type DashboardTab = 'overview' | 'products' | 'orders' | 'recommender' | 'ambassador' | 'gamification' | 'leaderboard' | 'clicks' | 'admin' | 'withdrawals'
 
 // Pending action that survives auth redirect
 export interface PendingRecommendAction {
@@ -334,6 +336,7 @@ interface AppState {
   setPendingAction: (action: PendingRecommendAction | null) => void
   clearPendingAction: () => void
   setPublicProducts: (products: Product[]) => void
+  updatePublicProduct: (product: Product) => void
   setProducts: (products: Product[]) => void
   addProduct: (product: Product) => void
   updateProductInList: (product: Product) => void
@@ -402,10 +405,11 @@ export const useAppStore = create<AppState>((set) => ({
       isAuthenticated: !!user,
       isAuthLoading: false,
       // If there's a pending action, stay on public view so the action can be resumed
-      // Otherwise navigate to dashboard as usual
+      // Otherwise navigate to public so they see explore by default
       currentView: user
-        ? (state.pendingAction ? state.currentView : 'dashboard')
+        ? (state.pendingAction ? state.currentView : 'public')
         : 'public',
+      dashboardTab: 'overview',
     })),
 
   logout: () =>
@@ -440,6 +444,13 @@ export const useAppStore = create<AppState>((set) => ({
   clearPendingAction: () => set({ pendingAction: null }),
 
   setPublicProducts: (products) => set({ publicProducts: products }),
+
+  updatePublicProduct: (product) =>
+    set((state) => ({
+      publicProducts: state.publicProducts.map((p) =>
+        p.id === product.id ? product : p
+      ),
+    })),
 
   setProducts: (products) => set({ products }),
 

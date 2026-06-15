@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useCallback, useState, useRef, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, Variants } from 'framer-motion'
 import {
   ShoppingBag,
   Banknote,
@@ -32,6 +32,8 @@ import {
   ChevronRight,
   PartyPopper,
   ArrowUpRight,
+  HelpCircle,
+  Share2,
 } from 'lucide-react'
 import {
   useAppStore,
@@ -112,22 +114,22 @@ const containerVariants = {
   },
 }
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } },
 }
 
-const slideInRight = {
+const slideInRight: Variants = {
   hidden: { opacity: 0, x: 30 },
   visible: { opacity: 1, x: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } },
 }
 
-const scaleIn = {
+const scaleIn: Variants = {
   hidden: { opacity: 0, scale: 0.7 },
   visible: { opacity: 1, scale: 1, transition: { type: 'spring', stiffness: 400, damping: 20 } },
 }
 
-const fadeInUp = {
+const fadeInUp: Variants = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 }
@@ -668,9 +670,12 @@ function QuestsTab({
       )}
 
       {dailyQuests.length === 0 && (
-        <div className="glass rounded-xl p-6 text-center">
-          <Target className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">Aucune quête disponible</p>
+        <div className="glass rounded-xl p-8 text-center flex flex-col items-center mt-4">
+          <div className="w-16 h-16 rounded-full bg-blue-500/20 flex items-center justify-center mb-4">
+            <Target className="w-8 h-8 text-blue-400" />
+          </div>
+          <h4 className="text-lg font-bold text-white mb-2">Pas de mission aujourd'hui</h4>
+          <p className="text-sm text-white/60">Reviens un peu plus tard pour voir tes nouvelles tâches !</p>
         </div>
       )}
     </div>
@@ -890,9 +895,14 @@ function AchievementsTab({ achievements }: { achievements: UserAchievementData[]
       </div>
 
       {achievements.length === 0 ? (
-        <div className="glass rounded-xl p-6 text-center">
-          <Target className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">Aucun succès disponible</p>
+        <div className="glass rounded-xl p-8 text-center flex flex-col items-center mt-4">
+          <div className="w-16 h-16 rounded-full bg-orange-500/20 flex items-center justify-center mb-4">
+            <Trophy className="w-8 h-8 text-orange-400" />
+          </div>
+          <h4 className="text-lg font-bold text-white mb-2">Ta vitrine est vide</h4>
+          <p className="text-sm text-white/60">
+            Continue d'utiliser l'application. Tes médailles et tes victoires s'afficheront ici !
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -1542,9 +1552,14 @@ function ClassementTab({ entries }: { entries: LeaderboardEntry[] }) {
 
   if (entries.length === 0) {
     return (
-      <div className="glass rounded-xl p-6 text-center">
-        <Crown className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-        <p className="text-sm text-muted-foreground">Aucun classement disponible</p>
+      <div className="glass rounded-xl p-8 text-center flex flex-col items-center mt-4">
+        <div className="w-16 h-16 rounded-full bg-yellow-500/20 flex items-center justify-center mb-4">
+          <Crown className="w-8 h-8 text-yellow-400" />
+        </div>
+        <h4 className="text-lg font-bold text-white mb-2">Personne dans la course</h4>
+        <p className="text-sm text-white/60">
+          Il n'y a pas encore de classement. C'est le moment idéal pour prendre la première place !
+        </p>
       </div>
     )
   }
@@ -1587,10 +1602,73 @@ function ClassementTab({ entries }: { entries: LeaderboardEntry[] }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// SECTION: AIDE & TUTORIEL
+// ═══════════════════════════════════════════════════════════════════════════
+function AideTab() {
+  const steps = [
+    {
+      title: "1. Choisis un produit",
+      desc: "Trouve un produit qui te plaît dans la liste de tes recommandations.",
+      icon: ShoppingBag,
+      color: "from-blue-400 to-indigo-500",
+      iconColor: "text-blue-500",
+    },
+    {
+      title: "2. Partage-le",
+      desc: "Envoie ton lien à tes amis par message ou sur les réseaux.",
+      icon: Share2,
+      color: "from-emerald-400 to-green-500",
+      iconColor: "text-emerald-500",
+    },
+    {
+      title: "3. Gagne des cadeaux !",
+      desc: "Quand un ami clique ou achète, tu gagnes des points pour débloquer de super récompenses.",
+      icon: Gift,
+      color: "from-amber-400 to-orange-500",
+      iconColor: "text-amber-500",
+    }
+  ]
+
+  return (
+    <div className="space-y-6 pt-4">
+      <div className="text-center space-y-2 mb-6">
+        <h3 className="text-xl sm:text-2xl font-bold text-white flex items-center justify-center gap-2">
+          <HelpCircle className="w-6 h-6 text-orange-400" />
+          Comment gagner des cadeaux ?
+        </h3>
+        <p className="text-white/60 text-sm sm:text-base">C'est très simple, suis ces 3 étapes !</p>
+      </div>
+      
+      <div className="grid gap-4 sm:grid-cols-3">
+        {steps.map((step, i) => {
+          const Icon = step.icon
+          return (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1 }}
+              className="relative overflow-hidden rounded-2xl bg-white/5 border border-white/10 p-5 shadow-lg flex flex-col items-center text-center"
+            >
+              <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${step.color}`} />
+              <div className={`p-4 rounded-full bg-white/5 mb-4 ${step.iconColor}`}>
+                <Icon className="w-8 h-8" />
+              </div>
+              <h4 className="text-base font-bold text-white mb-2">{step.title}</h4>
+              <p className="text-sm text-white/70 leading-relaxed">{step.desc}</p>
+            </motion.div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // MAIN GAMIFICATION PANEL
 // ═══════════════════════════════════════════════════════════════════════════
 
-export default function GamificationPanel() {
+export default function GamificationPanel({ initialTab = 'progress' }: { initialTab?: string }) {
   const user = useAppStore((s) => s.user)
   const gamificationData = useAppStore((s) => s.gamificationData)
   const leaderboard = useAppStore((s) => s.leaderboard)
@@ -1605,7 +1683,7 @@ export default function GamificationPanel() {
   const updateUserXp = useAppStore((s) => s.updateUserXp)
   const updateUserSpins = useAppStore((s) => s.updateUserSpins)
 
-  const [activeTab, setActiveTab] = useState('progress')
+  const [activeTab, setActiveTab] = useState(initialTab)
   const [isClaiming, setIsClaiming] = useState(false)
   const [isBuying, setIsBuying] = useState(false)
   const [spinResultData, setSpinResultData] = useState<(SpinResult & { segmentIndex: number; spinsRemaining: number }) | null>(null)
@@ -1795,36 +1873,46 @@ export default function GamificationPanel() {
   return (
     <div className="space-y-4">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="w-full bg-white/5 h-auto flex-nowrap overflow-x-auto gap-0.5 p-1 scrollbar-hide">
-          <TabsTrigger value="progress" className="flex-shrink-0 min-w-0 text-xs py-2 px-2 sm:px-3 sm:flex-1">
-            <ArrowUpRight className="w-3.5 h-3.5 sm:mr-1" />
-            <span className="hidden sm:inline">Progrès</span>
+        <TabsList className="w-full bg-white/5 h-auto grid grid-cols-4 sm:flex sm:flex-nowrap gap-1 p-1 rounded-xl">
+          <TabsTrigger value="aide" className="flex flex-col items-center justify-center py-2 px-1 gap-1 sm:flex-row sm:gap-2 min-w-0">
+            <HelpCircle className="size-5 sm:size-4" />
+            <span className="text-[10px] sm:text-xs leading-none">Aide</span>
           </TabsTrigger>
-          <TabsTrigger value="quetes" className="flex-shrink-0 min-w-0 text-xs py-2 px-2 sm:px-3 sm:flex-1">
-            <Target className="w-3.5 h-3.5 sm:mr-1" />
-            <span className="hidden sm:inline">Quêtes</span>
+          <TabsTrigger value="progress" className="flex flex-col items-center justify-center py-2 px-1 gap-1 sm:flex-row sm:gap-2 min-w-0">
+            <ArrowUpRight className="size-5 sm:size-4" />
+            <span className="text-[10px] sm:text-xs leading-none">Progrès</span>
           </TabsTrigger>
-          <TabsTrigger value="badges" className="flex-shrink-0 min-w-0 text-xs py-2 px-2 sm:px-3 sm:flex-1">
-            <Medal className="w-3.5 h-3.5 sm:mr-1" />
-            <span className="hidden sm:inline">Badges</span>
+          <TabsTrigger value="quetes" className="flex flex-col items-center justify-center py-2 px-1 gap-1 sm:flex-row sm:gap-2 min-w-0">
+            <Target className="size-5 sm:size-4" />
+            <span className="text-[10px] sm:text-xs leading-none">Quêtes</span>
           </TabsTrigger>
-          <TabsTrigger value="succes" className="flex-shrink-0 min-w-0 text-xs py-2 px-2 sm:px-3 sm:flex-1">
-            <Trophy className="w-3.5 h-3.5 sm:mr-1" />
-            <span className="hidden sm:inline">Succès</span>
+          <TabsTrigger value="badges" className="flex flex-col items-center justify-center py-2 px-1 gap-1 sm:flex-row sm:gap-2 min-w-0">
+            <Medal className="size-5 sm:size-4" />
+            <span className="text-[10px] sm:text-xs leading-none">Badges</span>
           </TabsTrigger>
-          <TabsTrigger value="boutique" className="flex-shrink-0 min-w-0 text-xs py-2 px-2 sm:px-3 sm:flex-1">
-            <Gift className="w-3.5 h-3.5 sm:mr-1" />
-            <span className="hidden sm:inline">Boutique</span>
+          <TabsTrigger value="succes" className="flex flex-col items-center justify-center py-2 px-1 gap-1 sm:flex-row sm:gap-2 min-w-0">
+            <Trophy className="size-5 sm:size-4" />
+            <span className="text-[10px] sm:text-xs leading-none">Succès</span>
           </TabsTrigger>
-          <TabsTrigger value="roue" className="flex-shrink-0 min-w-0 text-xs py-2 px-2 sm:px-3 sm:flex-1">
-            <CircleDot className="w-3.5 h-3.5 sm:mr-1" />
-            <span className="hidden sm:inline">Roue</span>
+          <TabsTrigger value="boutique" className="flex flex-col items-center justify-center py-2 px-1 gap-1 sm:flex-row sm:gap-2 min-w-0">
+            <Gift className="size-5 sm:size-4" />
+            <span className="text-[10px] sm:text-xs leading-none">Boutique</span>
           </TabsTrigger>
-          <TabsTrigger value="classement" className="flex-shrink-0 min-w-0 text-xs py-2 px-2 sm:px-3 sm:flex-1">
-            <Crown className="w-3.5 h-3.5 sm:mr-1" />
-            <span className="hidden sm:inline">Classement</span>
+          <TabsTrigger value="roue" className="flex flex-col items-center justify-center py-2 px-1 gap-1 sm:flex-row sm:gap-2 min-w-0">
+            <CircleDot className="size-5 sm:size-4" />
+            <span className="text-[10px] sm:text-xs leading-none">Roue</span>
+          </TabsTrigger>
+          <TabsTrigger value="classement" className="flex flex-col items-center justify-center py-2 px-1 gap-1 sm:flex-row sm:gap-2 min-w-0">
+            <Crown className="size-5 sm:size-4" />
+            <span className="text-[10px] sm:text-xs leading-none">Classement</span>
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="aide">
+          <div className="mt-3">
+            <AideTab />
+          </div>
+        </TabsContent>
 
         <TabsContent value="progress">
           <div className="mt-3">
