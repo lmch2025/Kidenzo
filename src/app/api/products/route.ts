@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db, withRetry } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
-import ytSearch from 'yt-search'
 import sharp from 'sharp'
-import 'cheerio' // Force Vercel @vercel/nft to include cheerio in the serverless function
 
 const IMGBB_API_KEY = process.env.IMGBB_API_KEY || '3ca1301a4e529153d12db10659925594'
 
@@ -149,27 +147,18 @@ export async function POST(request: NextRequest) {
 
     let youtubeUrl: string | null = null;
     try {
-      // Pour les titres très longs (ex: "Bague Vintage Or 18K d’Âme..."), yt-search échoue souvent
-      // On prend les 4 premiers mots du titre pour optimiser la recherche
       const shortQuery = name.split(' ').slice(0, 4).join(' ');
+      let query = `${shortQuery} ${category !== 'general' ? category : ''} short`;
       
-      let searchResult = await ytSearch(`${shortQuery} ${category !== 'general' ? category : ''} short`);
+      const res = await fetch(`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`);
+      const html = await res.text();
+      const match = html.match(/"videoId":"([^"]{11})"/);
       
-      // Fallback si la recherche ciblée ne trouve rien
-      if (!searchResult || !searchResult.videos || searchResult.videos.length === 0) {
-        searchResult = await ytSearch(`${shortQuery} short`);
-      }
-      
-      // Fallback très générique si toujours rien
-      if (!searchResult || !searchResult.videos || searchResult.videos.length === 0) {
-        searchResult = await ytSearch(`${category !== 'general' ? category : name.split(' ')[0]} short`);
-      }
-
-      if (searchResult && searchResult.videos && searchResult.videos.length > 0) {
-        youtubeUrl = searchResult.videos[0].url;
+      if (match && match[1]) {
+        youtubeUrl = `https://www.youtube.com/watch?v=${match[1]}`;
       }
     } catch (e) {
-      console.error('yt-search error:', e);
+      console.error('YouTube search error:', e);
     }
 
     const product = await db.product.create({

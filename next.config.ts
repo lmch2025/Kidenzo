@@ -8,7 +8,7 @@ const withSerwist = withSerwistInit({
 
 const nextConfig: NextConfig = {
   /* config options here */
-  serverExternalPackages: ['yt-search', 'cheerio', 'sharp'],
+  serverExternalPackages: ['sharp'],
   images: {
     unoptimized: true,
     remotePatterns: [
