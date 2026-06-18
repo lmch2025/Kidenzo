@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// ImgBB API key - hardcoded for this demo per user instruction
-const IMGBB_API_KEY = '3ca1301a4e529153d12db10659925594'
+// ImgBB API key - fallback to hardcoded value if env var is missing
+const IMGBB_API_KEY = process.env.IMGBB_API_KEY || '3ca1301a4e529153d12db10659925594'
 
 export async function POST(request: NextRequest) {
   try {

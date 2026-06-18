@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 import ytSearch from 'yt-search'
 import sharp from 'sharp'
 
-const IMGBB_API_KEY = '3ca1301a4e529153d12db10659925594'
+const IMGBB_API_KEY = process.env.IMGBB_API_KEY || '3ca1301a4e529153d12db10659925594'
 
 async function processAndUploadImage(url: string): Promise<string> {
   // If it's already an ImgBB URL or base64, return it
