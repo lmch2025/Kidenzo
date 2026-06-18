@@ -23,7 +23,7 @@ function LoadingFallback() {
 }
 
 export default function Home() {
-  const { isAuthenticated, user, currentView, miniSiteSlug, setProducts, setOrders, setRecommenderProducts, setGamificationData, setLeaderboard, setRewards, setClickStats } = useAppStore()
+  const { isAuthenticated, user, currentView, miniSiteSlug, setProducts, setOrders, setRecommenderProducts, setGamificationData, setLeaderboard, setRewards, setClickStats, setDataLoaded } = useAppStore()
 
   // Fetch user data when authenticated
   useEffect(() => {
@@ -31,64 +31,91 @@ export default function Home() {
 
     const fetchUserData = async () => {
       try {
-        // Fetch products
-        const productsRes = await fetch(`/api/products?ownerId=${user.id}`)
-        if (productsRes.ok) {
-          const productsData = await productsRes.json()
-          setProducts(productsData.products || productsData || [])
-        }
+        const ordersParam = user.role === 'recommender' ? `recommenderId=${user.id}` : `ownerId=${user.id}`
+        
+        // Define all promises
+        const promises: Promise<void>[] = []
+        
+        // Product fetch (owners)
+        promises.push(
+          fetch(`/api/products?ownerId=${user.id}`).then(async (res) => {
+            if (res.ok) {
+              const data = await res.json()
+              setProducts(data.products || data || [])
+            }
+          }).catch(err => console.error('Products fetch error:', err))
+        )
 
-        // Fetch orders
-        const ordersParam = user.role === 'owner' ? `ownerId=${user.id}` : `recommenderId=${user.id}`
-        const ordersRes = await fetch(`/api/orders?${ordersParam}`)
-        if (ordersRes.ok) {
-          const ordersData = await ordersRes.json()
-          setOrders(ordersData.orders || ordersData || [])
-        }
+        // Orders fetch (all users)
+        promises.push(
+          fetch(`/api/orders?${ordersParam}`).then(async (res) => {
+            if (res.ok) {
+              const data = await res.json()
+              setOrders(data.orders || data || [])
+            }
+          }).catch(err => console.error('Orders fetch error:', err))
+        )
 
-        // Fetch recommender products if recommender
+        // Recommender specific fetches
         if (user.role === 'recommender') {
-          const recRes = await fetch(`/api/recommender?userId=${user.id}`)
-          if (recRes.ok) {
-            const recData = await recRes.json()
-            setRecommenderProducts(recData.products || recData.recommenderProducts || recData || [])
-          }
-
-          // Fetch click stats for recommenders
-          const clickRes = await fetch(`/api/clicks?userId=${user.id}`)
-          if (clickRes.ok) {
-            const clickData = await clickRes.json()
-            setClickStats(clickData)
-          }
+          promises.push(
+            fetch(`/api/recommender?userId=${user.id}`).then(async (res) => {
+              if (res.ok) {
+                const data = await res.json()
+                setRecommenderProducts(data.products || data.recommenderProducts || data || [])
+              }
+            }).catch(err => console.error('Recommender products fetch error:', err))
+          )
+          
+          promises.push(
+            fetch(`/api/clicks?userId=${user.id}`).then(async (res) => {
+              if (res.ok) {
+                const data = await res.json()
+                setClickStats(data)
+              }
+            }).catch(err => console.error('Clicks fetch error:', err))
+          )
         }
 
-        // Fetch gamification data
-        const gamRes = await fetch(`/api/gamification?userId=${user.id}`)
-        if (gamRes.ok) {
-          const gamData = await gamRes.json()
-          setGamificationData(gamData)
-        }
+        // Gamification fetches
+        promises.push(
+          fetch(`/api/gamification?userId=${user.id}`).then(async (res) => {
+            if (res.ok) {
+              const data = await res.json()
+              setGamificationData(data)
+            }
+          }).catch(err => console.error('Gamification fetch error:', err))
+        )
 
-        // Fetch leaderboard
-        const lbRes = await fetch('/api/gamification?action=leaderboard')
-        if (lbRes.ok) {
-          const lbData = await lbRes.json()
-          setLeaderboard(lbData.leaderboard || [])
-        }
+        promises.push(
+          fetch('/api/gamification?action=leaderboard').then(async (res) => {
+            if (res.ok) {
+              const data = await res.json()
+              setLeaderboard(data.leaderboard || [])
+            }
+          }).catch(err => console.error('Leaderboard fetch error:', err))
+        )
 
-        // Fetch rewards
-        const rwRes = await fetch('/api/gamification?action=rewards')
-        if (rwRes.ok) {
-          const rwData = await rwRes.json()
-          setRewards(rwData.rewards || [])
-        }
+        promises.push(
+          fetch('/api/gamification?action=rewards').then(async (res) => {
+            if (res.ok) {
+              const data = await res.json()
+              setRewards(data.rewards || [])
+            }
+          }).catch(err => console.error('Rewards fetch error:', err))
+        )
+
+        // Execute all promises in parallel
+        await Promise.all(promises)
+        setDataLoaded(true)
+        
       } catch (error) {
         console.error('Failed to fetch user data:', error)
       }
     }
 
     fetchUserData()
-  }, [isAuthenticated, user, setProducts, setOrders, setRecommenderProducts, setGamificationData, setLeaderboard, setRewards, setClickStats])
+  }, [isAuthenticated, user, setProducts, setOrders, setRecommenderProducts, setGamificationData, setLeaderboard, setRewards, setClickStats, setDataLoaded])
 
   // If viewing a mini-site from the dashboard
   if (currentView === 'mini-site' && miniSiteSlug) {

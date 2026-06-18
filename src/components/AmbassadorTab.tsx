@@ -12,9 +12,13 @@ import {
   Check,
   User,
   BarChart3,
+  MessageSquare,
+  Wand2,
+  Share2,
 } from 'lucide-react'
 import { useAppStore, formatPrice } from '@/lib/store'
 import { Button } from '@/components/ui/button'
+import { RecruitmentShareModal } from './RecruitmentShareModal'
 
 interface NetworkRecommender {
   id: string
@@ -45,6 +49,7 @@ export function AmbassadorTab() {
   const [recommenders, setRecommenders] = useState<NetworkRecommender[]>([])
   const [stats, setStats] = useState<AmbassadorStats | null>(null)
   const [copiedLink, setCopiedLink] = useState(false)
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
 
   const userId = user?.id
 
@@ -62,7 +67,14 @@ export function AmbassadorTab() {
 
       if (networkRes.ok) {
         const networkData = await networkRes.json()
-        setRecommenders(networkData.recommenders ?? networkData ?? [])
+        const recs = Array.isArray(networkData?.network)
+          ? networkData.network
+          : Array.isArray(networkData?.recommenders) 
+            ? networkData.recommenders 
+            : Array.isArray(networkData) 
+              ? networkData 
+              : []
+        setRecommenders(recs)
       }
       if (statsRes.ok) {
         setStats(await statsRes.json())
@@ -95,7 +107,8 @@ export function AmbassadorTab() {
     setTimeout(() => setCopiedLink(false), 2000)
   }
 
-  const maxSales = Math.max(...recommenders.map((r) => r.totalSales), 1)
+  const safeRecommenders = Array.isArray(recommenders) ? recommenders : []
+  const maxSales = Math.max(...safeRecommenders.map((r) => r.totalSales), 1)
 
   if (isLoading) {
     return (
@@ -180,44 +193,28 @@ export function AmbassadorTab() {
         })}
       </div>
 
-      {/* Recruitment Link */}
+      {/* Outils Marketing de Recrutement */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="glass rounded-xl p-4 border border-purple-500/20"
+        className="glass rounded-xl p-5 border border-purple-500/30 relative overflow-hidden"
       >
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="font-semibold text-sm flex items-center gap-2">
-            <Link2 className="w-4 h-4 text-purple-400" />
-            Lien de parrainage
-          </h3>
-          <Button
-            size="sm"
-            variant="outline"
-            className="border-purple-500/30 hover:bg-purple-500/10 text-purple-400 h-7 text-xs"
-            onClick={handleCopyRecruitLink}
-          >
-            {copiedLink ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-emerald-400" />
-                Copié !
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5" />
-                Copier
-              </>
-            )}
-          </Button>
+        <div className="absolute top-0 right-0 p-4 opacity-10">
+          <Wand2 className="w-24 h-24 text-purple-400" />
         </div>
-        <p className="text-xs text-muted-foreground">
-          Partagez ce lien pour recruter de nouveaux recommandeurs dans votre réseau
-        </p>
-        <div className="mt-2 p-2 rounded-lg bg-purple-500/5 border border-purple-500/10">
-          <code className="text-xs text-purple-400 break-all">
-            {typeof window !== 'undefined' ? `${window.location.origin}/register?ref=${userId}` : `/register?ref=${userId}`}
-          </code>
+        <div className="relative z-10">
+          <h3 className="font-bold text-lg text-white mb-1">Recruter une équipe</h3>
+          <p className="text-sm text-white/60 mb-4 max-w-[80%]">
+            Utilisez l'Intelligence Artificielle pour générer des messages percutants et développer votre réseau.
+          </p>
+          <Button 
+            onClick={() => setIsShareModalOpen(true)}
+            className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-0 shadow-lg shadow-purple-500/25"
+          >
+            <Share2 className="w-4 h-4 mr-2" />
+            Ouvrir les outils de recrutement
+          </Button>
         </div>
       </motion.div>
 
@@ -233,7 +230,7 @@ export function AmbassadorTab() {
             Performance par recommandeur
           </h3>
           <div className="glass rounded-xl p-4 space-y-3">
-            {recommenders.map((rec, i) => {
+            {safeRecommenders.map((rec, i) => {
               const barWidth = maxSales > 0 ? (rec.totalSales / maxSales) * 100 : 0
               return (
                 <div key={rec.id} className="space-y-1">
@@ -270,7 +267,7 @@ export function AmbassadorTab() {
           <Users className="w-4 h-4 text-purple-400" />
           Mes recommandeurs
         </h3>
-        {recommenders.length === 0 ? (
+        {safeRecommenders.length === 0 ? (
           <div className="glass rounded-xl p-8 text-center">
             <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
             <p className="text-muted-foreground">Aucun recommandeur dans votre réseau</p>
@@ -280,7 +277,7 @@ export function AmbassadorTab() {
           </div>
         ) : (
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {recommenders.map((rec, i) => (
+            {safeRecommenders.map((rec, i) => (
               <motion.div
                 key={rec.id}
                 initial={{ opacity: 0, x: -20 }}
@@ -302,17 +299,39 @@ export function AmbassadorTab() {
                   </p>
                 </div>
 
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-bold text-emerald-400">
-                    {formatPrice(rec.totalCommissions)}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">commissions</p>
+                <div className="text-right shrink-0 flex flex-col items-end gap-2">
+                  <div>
+                    <p className="text-sm font-bold text-emerald-400">
+                      {formatPrice(rec.totalCommissions)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">commissions</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      const msg = rec.totalSales > 0 
+                        ? `Salut ${rec.name || ''}, super boulot pour tes ${rec.totalSales} ventes ! Continue comme ça, je suis fier de toi ! 🚀` 
+                        : `Salut ${rec.name || ''}, as-tu besoin d'aide pour réaliser ta première vente ? N'hésite pas à me poser tes questions ! 🤝`
+                      window.open(`https://wa.me/${rec.phone.replace('+', '')}?text=${encodeURIComponent(msg)}`, '_blank')
+                    }}
+                    className="h-7 px-2 text-[10px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20"
+                  >
+                    <MessageSquare className="w-3 h-3 mr-1" />
+                    Animer
+                  </Button>
                 </div>
               </motion.div>
             ))}
           </div>
         )}
       </motion.div>
+
+      <RecruitmentShareModal 
+        open={isShareModalOpen} 
+        onClose={() => setIsShareModalOpen(false)} 
+        shareLink={typeof window !== 'undefined' ? `${window.location.origin}/register?ref=${userId}` : `/register?ref=${userId}`}
+      />
     </div>
   )
 }

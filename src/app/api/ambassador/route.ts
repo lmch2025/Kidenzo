@@ -27,9 +27,9 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    if (user.role !== 'ambassador') {
+    if (!['ambassador', 'super_admin', 'admin', 'owner'].includes(user.role)) {
       return NextResponse.json(
-        { error: 'User is not an ambassador' },
+        { error: 'User is not an ambassador or admin' },
         { status: 403 }
       )
     }
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
 }
 
 async function handleGetNetwork(ambassadorId: string) {
-  // Get all recommenders under this ambassador with their stats
+  // Get all recommenders under this ambassador with basic info
   const recommenders = await db.user.findMany({
     where: { ambassadorId },
     select: {
@@ -67,27 +67,37 @@ async function handleGetNetwork(ambassadorId: string) {
           ordersAsRecommender: true,
         },
       },
-      ordersAsRecommender: {
-        where: { status: 'delivered' },
-        select: {
-          finalPrice: true,
-          commissionRecommender: true,
-        },
-      },
     },
     orderBy: { createdAt: 'desc' },
   })
 
+  // Get aggregated stats per recommender using groupBy
+  const orderStats = await db.order.groupBy({
+    by: ['recommenderId'],
+    where: {
+      status: 'delivered',
+      recommender: { ambassadorId },
+    },
+    _sum: {
+      finalPrice: true,
+      commissionRecommender: true,
+    },
+  })
+
+  // Create a lookup map for faster access
+  const statsMap = new Map(
+    orderStats.map((stat) => [
+      stat.recommenderId,
+      {
+        totalSales: stat._sum.finalPrice || 0,
+        totalCommissions: stat._sum.commissionRecommender || 0,
+      },
+    ])
+  )
+
   // Calculate stats per recommender
   const network = recommenders.map((rec) => {
-    const totalSales = rec.ordersAsRecommender.reduce(
-      (sum, order) => sum + order.finalPrice,
-      0
-    )
-    const totalCommissions = rec.ordersAsRecommender.reduce(
-      (sum, order) => sum + order.commissionRecommender,
-      0
-    )
+    const stats = statsMap.get(rec.id) || { totalSales: 0, totalCommissions: 0 }
 
     return {
       id: rec.id,
@@ -99,8 +109,8 @@ async function handleGetNetwork(ambassadorId: string) {
       joinedAt: rec.createdAt,
       totalProducts: rec._count.recommenderProducts,
       totalOrders: rec._count.ordersAsRecommender,
-      totalSales,
-      totalCommissions,
+      totalSales: stats.totalSales,
+      totalCommissions: stats.totalCommissions,
     }
   })
 
@@ -108,63 +118,48 @@ async function handleGetNetwork(ambassadorId: string) {
 }
 
 async function handleGetStats(ambassadorId: string) {
-  // Total recommenders
-  const totalRecommenders = await db.user.count({
-    where: { ambassadorId },
-  })
-
-  // Total sales from network (delivered orders)
-  const deliveredOrders = await db.order.findMany({
-    where: {
-      status: 'delivered',
-      recommender: { ambassadorId },
-    },
-    select: {
-      finalPrice: true,
-      commissionAmbassador: true,
-      commissionRecommender: true,
-    },
-  })
-
-  const totalSales = deliveredOrders.reduce(
-    (sum, order) => sum + order.finalPrice,
-    0
-  )
-
-  const totalCommissions = deliveredOrders.reduce(
-    (sum, order) => sum + order.commissionAmbassador,
-    0
-  )
-
-  // Total orders count
-  const totalOrders = deliveredOrders.length
-
-  // Recent orders (last 10)
-  const recentOrders = await db.order.findMany({
-    where: {
-      recommender: { ambassadorId },
-    },
-    include: {
-      recommender: {
-        select: { id: true, name: true, phone: true },
+  // Execute aggregations concurrently for better performance
+  const [totalRecommenders, orderStats, recentOrders] = await Promise.all([
+    db.user.count({
+      where: { ambassadorId },
+    }),
+    db.order.aggregate({
+      where: {
+        status: 'delivered',
+        recommender: { ambassadorId },
       },
-      miniSite: {
-        include: {
-          product: {
-            select: { name: true },
+      _sum: {
+        finalPrice: true,
+        commissionAmbassador: true,
+      },
+      _count: true,
+    }),
+    db.order.findMany({
+      where: {
+        recommender: { ambassadorId },
+      },
+      include: {
+        recommender: {
+          select: { id: true, name: true, phone: true },
+        },
+        miniSite: {
+          include: {
+            product: {
+              select: { name: true },
+            },
           },
         },
       },
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 10,
-  })
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    }),
+  ])
 
   return NextResponse.json({
     totalRecommenders,
-    totalSales,
-    totalCommissions,
-    totalOrders,
+    totalSales: orderStats._sum.finalPrice || 0,
+    totalCommissions: orderStats._sum.commissionAmbassador || 0,
+    totalOrders: orderStats._count || 0,
     recentOrders,
   })
 }

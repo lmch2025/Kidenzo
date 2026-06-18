@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -60,11 +61,18 @@ model Product {
   weight      String   @default("") // e.g. "500g", "1.2kg"
   dimensions  String   @default("") // e.g. "30x20x10cm"
   sourceUrl   String?  // Original Alibaba/AliExpress URL
+  youtubeUrl  String?  // Short video for the product
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   images     ProductImage[]
   miniSite   MiniSite?
+  reviews    ProductReview[]
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([category])
+  @@index([createdAt])
 }
 
 model ProductImage {
@@ -85,6 +93,8 @@ model MiniSite {
 
   recommenderProducts RecommenderProduct[]
   orders     Order[]
+
+  @@index([slug])
 }
 
 model RecommenderProduct {
@@ -119,6 +129,12 @@ model Order {
   updatedAt           DateTime @updatedAt
 
   commissionPayments CommissionPayment[]
+  review              ProductReview?
+
+  @@index([miniSiteId])
+  @@index([recommenderId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model CommissionPayment {
@@ -330,4 +346,23 @@ model SystemConfig {
   key       String   @unique
   value     String
   updatedAt DateTime @updatedAt
+}
+
+// ─── Product Reviews ──────────────────────────────────────────────
+
+model ProductReview {
+  id           String   @id @default(cuid())
+  orderId      String   @unique
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customerName String   // Repris de la commande
+  rating       Int      // 1 à 5
+  comment      String?  // Commentaire optionnel
+  status       String   @default("published") // published, hidden
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([productId])
+  @@index([createdAt])
 }

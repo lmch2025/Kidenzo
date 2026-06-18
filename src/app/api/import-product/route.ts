@@ -123,14 +123,14 @@ Tu dois retourner UNIQUEMENT un JSON valide, sans aucun texte supplémentaire :
   "name": "Nouveau titre accrocheur et court (en français)",
   "description": "Nouveau texte de vente persuasif, émotionnel et très vendeur (3-4 phrases). Donne envie d'acheter immédiatement.",
   "price": nombre (prix original en USD, convertir si nécessaire, sans symbole),
-  "category": "alimentation|textile|boisson|electronique|beaute|autre",
+  "category": "alimentation|vetements|electronique|maison|sante|beaute|sport|jouets|automobile|livres|animaux|bricolage|jardin|bebes|bijoux|art|bureau|instruments|immobilier|services_pro|services_perso|education|evenementiel|tourisme|autre",
   "weight": "Poids avec unité (ex: 500g, 1.2kg) ou chaîne vide si inconnu",
   "dimensions": "Dimensions LxLxH avec unité (ex: 30x20x10cm) ou chaîne vide si inconnu"
 }
 
 Règles:
 - Le prix doit être un nombre (float), en dollars US si indiqué
-- La catégorie doit correspondre à l'une des valeurs listées
+- La catégorie doit correspondre à l'une des valeurs listées (ex: 'maison', 'electronique', 'vetements', 'alimentation', etc.)
 - Si une information n'est pas trouvée, utilise une valeur par défaut raisonnable
 - Réponds UNIQUEMENT avec le JSON, aucun texte avant ou après`
 

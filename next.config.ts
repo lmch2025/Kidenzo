@@ -8,6 +8,27 @@ const withSerwist = withSerwistInit({
 
 const nextConfig: NextConfig = {
   /* config options here */
+  images: {
+    unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'i.ibb.co',
+      },
+      {
+        protocol: 'https',
+        hostname: 'public.blob.vercel-storage.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 's.alicdn.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'ae01.alicdn.com',
+      },
+    ],
+  },
   typescript: {
     ignoreBuildErrors: true,
   },

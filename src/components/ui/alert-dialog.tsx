@@ -5,6 +5,7 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
+import { useHardwareBack } from "@/hooks/use-hardware-back"
 
 function AlertDialog({
   ...props
@@ -48,6 +49,7 @@ function AlertDialogContent({
   className,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Content>) {
+  useHardwareBack();
   return (
     <AlertDialogPortal>
       <AlertDialogOverlay />

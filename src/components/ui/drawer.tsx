@@ -4,6 +4,7 @@ import * as React from "react"
 import { Drawer as DrawerPrimitive } from "vaul"
 
 import { cn } from "@/lib/utils"
+import { useHardwareBack } from "@/hooks/use-hardware-back"
 
 function Drawer({
   ...props
@@ -50,6 +51,7 @@ function DrawerContent({
   children,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Content>) {
+  useHardwareBack();
   return (
     <DrawerPortal data-slot="drawer-portal">
       <DrawerOverlay />

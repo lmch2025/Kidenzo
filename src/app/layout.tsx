@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
+import { AppExitGuard } from "@/components/AppExitGuard";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -60,8 +61,9 @@ export default function RootLayout({
         {/* Serwist handles offline gracefully, we don't need manual meta tags for that */}
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground overflow-x-hidden`}
       >
+        <AppExitGuard />
         {children}
         <PwaInstallPrompt />
         <Toaster />

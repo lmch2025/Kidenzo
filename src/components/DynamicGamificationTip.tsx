@@ -11,11 +11,10 @@ export function DynamicGamificationTip() {
   const [currentTipIndex, setCurrentTipIndex] = useState(0)
 
   const progress = gamificationData?.progress
-  const quests = gamificationData?.quests
-  const pointsToNextLevel = (progress?.xpForNextLevel || 0) - (progress?.currentXP || 0)
+  const pointsToNextLevel = (progress?.xpNeededForNextLevel || 0)
 
   // Générer des astuces dynamiques basées sur l'état de l'utilisateur
-  const tips = []
+  const tips: Array<{ icon: React.ElementType; title: string; message: string; color: string; iconColor: string }> = []
 
   // Astuce de base (toujours présente, termes très simples)
   tips.push({
@@ -37,17 +36,7 @@ export function DynamicGamificationTip() {
     })
   }
 
-  // Astuce quêtes (si une quête est en cours)
-  const activeQuests = quests?.filter((q: any) => !q.completed) || []
-  if (activeQuests.length > 0) {
-    tips.push({
-      icon: Target,
-      title: "🎯 Mission du jour",
-      message: `Mission en cours : ${activeQuests[0].title}. Termine-la pour gagner ${activeQuests[0].xpReward} points en plus !`,
-      color: "from-emerald-400 to-green-500",
-      iconColor: "text-emerald-500"
-    })
-  }
+  // Removed quests tip since it's not supported by GamificationData
 
   // Rotation des astuces toutes les 8 secondes si on en a plusieurs
   useEffect(() => {

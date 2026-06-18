@@ -5,6 +5,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { XIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { useHardwareBack } from "@/hooks/use-hardware-back"
 
 function Dialog({
   ...props
@@ -54,6 +55,7 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
 }) {
+  useHardwareBack();
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />

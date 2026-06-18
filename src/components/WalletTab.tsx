@@ -88,7 +88,7 @@ export function WalletTab() {
       const res = await fetch('/api/withdrawals', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ userId: user.id, amount: numAmount, phoneNumber })
+        body: JSON.stringify({ userId: user?.id, amount: numAmount, phoneNumber })
       })
 
       const result = await res.json()

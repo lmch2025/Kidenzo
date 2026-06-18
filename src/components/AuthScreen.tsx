@@ -37,7 +37,7 @@ function AuroraBlob({
       }}
       initial={{ scale: 0.8, opacity: 0 }}
       animate={{ scale: 1, opacity: 0.35 }}
-      transition={{ duration: 2, delay: delay * 0.5, ease: 'easeOut' }}
+      transition={{ duration: 2, delay: delay * 0.5, ease: 'easeOut' as any }}
     />
   )
 }
@@ -116,7 +116,7 @@ function PinDots({ length, maxLen = 8 }: { length: number; maxLen?: number }) {
             scale: i < length ? 1 : 0.8,
             boxShadow: i < length ? '0 0 6px rgba(249,115,22,0.4)' : 'none',
           }}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
+          transition={{ duration: 0.2, ease: 'easeOut' as any }}
         />
       ))}
     </div>
@@ -166,7 +166,7 @@ function SuccessParticleBurst() {
             opacity: [1, 1, 0],
             rotate: 720 + seededRandom(p.id * 3 + 200) * 360,
           }}
-          transition={{ duration: p.duration, delay: p.delay, ease: 'easeOut' }}
+          transition={{ duration: p.duration, delay: p.delay, ease: 'easeOut' as any }}
         />
       ))}
 
@@ -182,7 +182,7 @@ function SuccessParticleBurst() {
           y: -300,
           opacity: 0,
         }}
-        transition={{ duration: 1.2, ease: 'easeOut' }}
+        transition={{ duration: 1.2, ease: 'easeOut' as any }}
       />
       <motion.div
         className="absolute left-1/2 top-[45%] border border-pink-400/30 rounded-full"
@@ -195,7 +195,7 @@ function SuccessParticleBurst() {
           y: -250,
           opacity: 0,
         }}
-        transition={{ duration: 1, delay: 0.15, ease: 'easeOut' }}
+        transition={{ duration: 1, delay: 0.15, ease: 'easeOut' as any }}
       />
     </div>
   )
@@ -240,7 +240,7 @@ function Ripple() {
       className="absolute rounded-full bg-white/30 pointer-events-none"
       initial={{ width: 0, height: 0, opacity: 0.5, x: '-50%', y: '-50%' }}
       animate={{ width: 300, height: 300, opacity: 0, x: '-50%', y: '-50%' }}
-      transition={{ duration: 0.6, ease: 'easeOut' }}
+      transition={{ duration: 0.6, ease: 'easeOut' as any }}
       style={{ left: '50%', top: '50%' }}
     />
   )
@@ -268,7 +268,7 @@ function FloatingLabel({
         scale: isActive ? 0.75 : 1,
         color: isFocused ? '#f97316' : 'rgba(255,255,255,0.4)',
       }}
-      transition={{ duration: 0.2, ease: 'easeOut' }}
+      transition={{ duration: 0.2, ease: 'easeOut' as any }}
       style={{ top: '50%', transformOrigin: 'left center' }}
     >
       {children}
@@ -277,13 +277,14 @@ function FloatingLabel({
 }
 
 // ─── Main Component ───────────────────────────────────────────
-export default function AuthScreen() {
+export default function AuthScreen({ isModal = false }: { isModal?: boolean } = {}) {
   const setUser = useAppStore((s) => s.setUser)
   const setAuthLoading = useAppStore((s) => s.setAuthLoading)
   const isAuthLoading = useAppStore((s) => s.isAuthLoading)
   const addXPNotification = useAppStore((s) => s.addXPNotification)
   const setShowAuthModal = useAppStore((s) => s.setShowAuthModal)
   const setCurrentView = useAppStore((s) => s.setCurrentView)
+  const preloadUserData = useAppStore((s) => s.preloadUserData)
 
   const [phone, setPhone] = useState('')
   const [pin, setPin] = useState('')
@@ -316,7 +317,7 @@ export default function AuthScreen() {
 
   const itemVariants = {
     hidden: { opacity: 0, y: 8 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' as any } },
   }
 
   const handleSubmit = useCallback(
@@ -377,13 +378,19 @@ export default function AuthScreen() {
           return
         }
 
-        // Success
+        // Success - Start background data preloading immediately
         setShowSuccess(true)
-        setTimeout(() => {
-          setUser(data.user, data.token)
-          addXPNotification(50, 'Bienvenue !')
-          setShowAuthModal(false)
-        }, 1800)
+        
+        // Trigger background data preloading
+        preloadUserData(data.user, data.token)
+        
+        // Wait ONLY for the animation time
+        await new Promise((resolve) => setTimeout(resolve, 600))
+        
+        setUser(data.user, data.token)
+        addXPNotification(50, 'Bienvenue !')
+        setShowAuthModal(false)
+        setCurrentView('dashboard')
       } catch {
         setError('Erreur réseau. Réessayez.')
         setAuthLoading(false)
@@ -400,42 +407,8 @@ export default function AuthScreen() {
     }, 700)
   }
 
-  return (
-    <div className="relative h-dvh flex items-center justify-center overflow-hidden bg-[#0d0118]">
-      {/* ── Close Button ── */}
-      <button
-        onClick={() => {
-          setShowAuthModal(false)
-          setCurrentView('dashboard')
-        }}
-        className="absolute top-4 sm:top-6 right-4 sm:right-6 z-[100] w-10 h-10 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-all backdrop-blur-md"
-        aria-label="Fermer"
-      >
-        <X className="w-5 h-5" />
-      </button>
-
-      {/* ── Aurora Background ── */}
-      <div className="absolute inset-0 z-0">
-        {/* Base gradient */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              'radial-gradient(ellipse at 20% 50%, #1a0533 0%, transparent 70%), radial-gradient(ellipse at 80% 50%, #4a1942 0%, transparent 70%), radial-gradient(ellipse at 50% 100%, #2d1040 0%, transparent 60%)',
-          }}
-        />
-        {/* Aurora blobs */}
-        <AuroraBlob color="#a855f7" size={500} initialX="5%" initialY="10%" delay={0} />
-        <AuroraBlob color="#f97316" size={450} initialX="60%" initialY="5%" delay={1.5} slow />
-        <AuroraBlob color="#ec4899" size={400} initialX="35%" initialY="55%" delay={3} />
-        <AuroraBlob color="#7c3aed" size={350} initialX="70%" initialY="60%" delay={4.5} slow />
-        {/* Subtle noise overlay */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\'/%3E%3C/svg%3E")' }} />
-      </div>
-
-      {/* ── Floating Particles ── */}
-      <ParticleSystem />
-
+  const authContent = (
+    <>
       {/* ── Success Burst ── */}
       <AnimatePresence>
         {showSuccess && (
@@ -458,7 +431,7 @@ export default function AuthScreen() {
           y: 0,
           scale: showSuccess ? 1.01 : 1,
         }}
-        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.6, ease: 'easeOut' as any }}
         className="relative z-10 w-full max-w-md mx-3 sm:mx-4 max-h-[96dvh]"
       >
         {/* Animated gradient border wrapper */}
@@ -621,7 +594,7 @@ export default function AuthScreen() {
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                      transition={{ duration: 0.4, ease: 'easeOut' as any }}
                       className="overflow-hidden space-y-4"
                     >
                       {/* Confirm PIN */}
@@ -768,6 +741,50 @@ export default function AuthScreen() {
           className="absolute -top-24 left-1/2 -translate-x-1/2 w-1/2 h-32 bg-purple-500/5 rounded-full blur-3xl pointer-events-none"
         />
       </motion.div>
+    </>
+  )
+
+  if (isModal) {
+    return <>{authContent}</>
+  }
+
+  return (
+    <div className="relative h-dvh flex items-center justify-center overflow-hidden bg-[#0d0118]">
+      {/* ── Close Button ── */}
+      <button
+        onClick={() => {
+          setShowAuthModal(false)
+          setCurrentView('dashboard')
+        }}
+        className="absolute top-4 sm:top-6 right-4 sm:right-6 z-[100] w-10 h-10 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-all backdrop-blur-md"
+        aria-label="Fermer"
+      >
+        <X className="w-5 h-5" />
+      </button>
+
+      {/* ── Aurora Background ── */}
+      <div className="absolute inset-0 z-0">
+        {/* Base gradient */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(ellipse at 20% 50%, #1a0533 0%, transparent 70%), radial-gradient(ellipse at 80% 50%, #4a1942 0%, transparent 70%), radial-gradient(ellipse at 50% 100%, #2d1040 0%, transparent 60%)',
+          }}
+        />
+        {/* Aurora blobs */}
+        <AuroraBlob color="#a855f7" size={500} initialX="5%" initialY="10%" delay={0} />
+        <AuroraBlob color="#f97316" size={450} initialX="60%" initialY="5%" delay={1.5} slow />
+        <AuroraBlob color="#ec4899" size={400} initialX="35%" initialY="55%" delay={3} />
+        <AuroraBlob color="#7c3aed" size={350} initialX="70%" initialY="60%" delay={4.5} slow />
+        {/* Subtle noise overlay */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\'/%3E%3C/svg%3E")' }} />
+      </div>
+
+      {/* ── Floating Particles ── */}
+      <ParticleSystem />
+
+      {authContent}
     </div>
   )
 }

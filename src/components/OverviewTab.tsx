@@ -25,6 +25,8 @@ import {
   Sparkles,
   Coins,
   MousePointerClick,
+  Wand2,
+  MessageSquare,
 } from 'lucide-react'
 import { useAppStore, formatPrice, getLevelName, getLevelColor } from '@/lib/store'
 import { Button } from '@/components/ui/button'
@@ -151,69 +153,13 @@ function XPRing({ progress, level, size = 80 }: { progress: number; level: numbe
 }
 
 export function OverviewTab() {
-  const { user, products, orders, recommenderProducts, gamificationData, setDashboardTab, setProducts, setOrders, setRecommenderProducts, setGamificationData, token } = useAppStore()
-  const [isLoading, setIsLoading] = useState(true)
+  const { user, products, orders, recommenderProducts, gamificationData, setDashboardTab, setActivitySubTab, isDataLoaded } = useAppStore()
+  const isLoading = !isDataLoaded
 
   const userRole = user?.role as UserRole
   const userId = user?.id
 
-  const fetchData = useCallback(async () => {
-    if (!userId) return
-    setIsLoading(true)
-    try {
-      const headers: Record<string, string> = {}
-      if (token) headers['Authorization'] = `Bearer ${token}`
 
-      if (userRole === 'owner') {
-        const [productsRes, ordersRes] = await Promise.all([
-          fetch(`/api/products?ownerId=${userId}`, { headers }),
-          fetch(`/api/orders?ownerId=${userId}`, { headers }),
-        ])
-        if (productsRes.ok) {
-          const data = await productsRes.json()
-          setProducts(data.products || data || [])
-        }
-        if (ordersRes.ok) {
-          const data = await ordersRes.json()
-          setOrders(data.orders || data || [])
-        }
-      } else if (userRole === 'recommender') {
-        const [recRes, ordersRes] = await Promise.all([
-          fetch(`/api/recommender?userId=${userId}`, { headers }),
-          fetch(`/api/orders?recommenderId=${userId}`, { headers }),
-        ])
-        if (recRes.ok) {
-          const data = await recRes.json()
-          setRecommenderProducts(data.recommenderProducts || data.products || data || [])
-        }
-        if (ordersRes.ok) {
-          const data = await ordersRes.json()
-          setOrders(data.orders || data || [])
-        }
-      } else if (userRole === 'ambassador') {
-        const ordersRes = await fetch(`/api/orders?ownerId=${userId}`, { headers })
-        if (ordersRes.ok) {
-          const data = await ordersRes.json()
-          setOrders(data.orders || data || [])
-        }
-      }
-
-      const gamRes = await fetch(`/api/gamification?userId=${userId}`, { headers })
-      if (gamRes.ok) {
-        const data = await gamRes.json()
-        setGamificationData(data)
-      }
-    } catch (error) {
-      console.error('Failed to fetch overview data:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [userId, userRole, token, setProducts, setOrders, setRecommenderProducts, setGamificationData])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchData()
-  }, [fetchData])
 
   const getStats = (): StatCard[] => {
     if (userRole === 'owner') {
@@ -432,7 +378,7 @@ export function OverviewTab() {
             <>
               <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
                 <Button
-                  onClick={() => setDashboardTab('products')}
+                  onClick={() => setDashboardTab('profile')}
                   className="bg-gradient-to-r from-orange-500 via-orange-500 to-amber-500 hover:from-orange-600 hover:via-orange-600 hover:to-amber-600 text-white shadow-lg shadow-orange-500/25 border-0 relative overflow-hidden group"
                 >
                   <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
@@ -442,7 +388,10 @@ export function OverviewTab() {
               </motion.div>
               <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
                 <Button
-                  onClick={() => setDashboardTab('orders')}
+                  onClick={() => {
+                    setActivitySubTab('orders')
+                    setDashboardTab('activity')
+                  }}
                   variant="outline"
                   className="border-orange-500/30 hover:bg-orange-500/10 hover:border-orange-500/50 transition-all"
                 >
@@ -456,7 +405,10 @@ export function OverviewTab() {
             <>
               <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
                 <Button
-                  onClick={() => setDashboardTab('recommender')}
+                  onClick={() => {
+                    setActivitySubTab('recommender')
+                    setDashboardTab('activity')
+                  }}
                   className="bg-gradient-to-r from-emerald-500 via-emerald-500 to-teal-500 hover:from-emerald-600 hover:via-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-emerald-500/25 border-0 relative overflow-hidden group"
                 >
                   <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
@@ -466,7 +418,10 @@ export function OverviewTab() {
               </motion.div>
               <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
                 <Button
-                  onClick={() => setDashboardTab('clicks')}
+                  onClick={() => {
+                    setActivitySubTab('clicks')
+                    setDashboardTab('activity')
+                  }}
                   variant="outline"
                   className="border-emerald-500/30 hover:bg-emerald-500/10 hover:border-emerald-500/50 transition-all"
                 >
@@ -476,7 +431,10 @@ export function OverviewTab() {
               </motion.div>
               <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
                 <Button
-                  onClick={() => setDashboardTab('orders')}
+                  onClick={() => {
+                    setActivitySubTab('orders')
+                    setDashboardTab('activity')
+                  }}
                   variant="outline"
                   className="border-orange-500/30 hover:bg-orange-500/10 hover:border-orange-500/50 transition-all"
                 >
@@ -486,7 +444,10 @@ export function OverviewTab() {
               </motion.div>
               <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
                 <Button
-                  onClick={() => setDashboardTab('withdrawals')}
+                  onClick={() => {
+                    setActivitySubTab('wallet')
+                    setDashboardTab('activity')
+                  }}
                   variant="outline"
                   className="border-yellow-500/30 hover:bg-yellow-500/10 hover:border-yellow-500/50 transition-all"
                 >
@@ -500,27 +461,36 @@ export function OverviewTab() {
             <>
               <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
                 <Button
-                  onClick={() => setDashboardTab('ambassador')}
+                  onClick={() => {
+                    setActivitySubTab('ambassador')
+                    setDashboardTab('activity')
+                  }}
                   className="bg-gradient-to-r from-purple-500 via-purple-500 to-pink-500 hover:from-purple-600 hover:via-purple-600 hover:to-pink-600 text-white shadow-lg shadow-purple-500/25 border-0 relative overflow-hidden group"
                 >
                   <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
-                  <Users className="w-4 h-4 mr-1.5" />
-                  Mon Réseau
+                  <Wand2 className="w-4 h-4 mr-1.5" />
+                  Recruter
                 </Button>
               </motion.div>
               <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
                 <Button
-                  onClick={() => setDashboardTab('orders')}
+                  onClick={() => {
+                    setActivitySubTab('ambassador')
+                    setDashboardTab('activity')
+                  }}
                   variant="outline"
-                  className="border-purple-500/30 hover:bg-purple-500/10 hover:border-purple-500/50 transition-all"
+                  className="border-emerald-500/30 hover:bg-emerald-500/10 hover:border-emerald-500/50 transition-all text-emerald-400"
                 >
-                  <ShoppingCart className="w-4 h-4 mr-1.5" />
-                  Voir Commandes
+                  <MessageSquare className="w-4 h-4 mr-1.5" />
+                  Animer mon équipe
                 </Button>
               </motion.div>
               <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
                 <Button
-                  onClick={() => setDashboardTab('withdrawals')}
+                  onClick={() => {
+                    setActivitySubTab('wallet')
+                    setDashboardTab('activity')
+                  }}
                   variant="outline"
                   className="border-yellow-500/30 hover:bg-yellow-500/10 hover:border-yellow-500/50 transition-all"
                 >
@@ -532,7 +502,7 @@ export function OverviewTab() {
           )}
           <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
             <Button
-              onClick={() => setDashboardTab('leaderboard')}
+              onClick={() => setDashboardTab('gamification')}
               variant="outline"
               className="border-yellow-500/30 hover:bg-yellow-500/10 hover:border-yellow-500/50 transition-all"
             >

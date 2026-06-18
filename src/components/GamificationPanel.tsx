@@ -69,6 +69,8 @@ import {
   Dialog,
   DialogContent,
   DialogTrigger,
+  DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog'
 
 // ── Badge icon mapping ──────────────────────────────────────────────────────
@@ -1310,6 +1312,10 @@ function SpinResultDialog({
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="bg-card border-border max-w-[340px] p-0 overflow-hidden">
+        <DialogTitle className="sr-only">Résultat de la roue</DialogTitle>
+        <DialogDescription className="sr-only">
+          Voici le résultat de votre lancer de la roue.
+        </DialogDescription>
         <div className="relative p-6 flex flex-col items-center gap-4 text-center">
           {/* Glow background */}
           {isRare && (

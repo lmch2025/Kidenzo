@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 
 // POST /api/auth - Login or Register
 export async function POST(request: NextRequest) {
+  console.log('Received POST request to /api/auth');
   try {
     const body = await request.json()
     const { phone, pin, confirmPin, name } = body

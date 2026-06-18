@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { db, withRetry } from '@/lib/db'
 
 const FREE_MODELS = [
   'openai/gpt-oss-120b:free',
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const miniSite = await db.miniSite.findUnique({
+    const miniSite = await withRetry(() => db.miniSite.findUnique({
       where: { slug },
       include: {
         product: {
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-    })
+    }))
 
     if (!miniSite) {
       return NextResponse.json(

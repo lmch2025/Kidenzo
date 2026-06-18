@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 export type UserRole = 'owner' | 'ambassador' | 'recommender'
 
@@ -278,7 +279,8 @@ export interface SuspiciousActivityData {
 }
 
 export type AppView = 'public' | 'auth' | 'dashboard' | 'mini-site'
-export type DashboardTab = 'overview' | 'products' | 'orders' | 'recommender' | 'ambassador' | 'gamification' | 'leaderboard' | 'clicks' | 'admin' | 'withdrawals'
+export type DashboardTab = 'overview' | 'catalog' | 'activity' | 'gamification' | 'profile'
+export type ActivitySubTab = 'orders' | 'wallet' | 'clicks' | 'recommender' | 'ambassador'
 
 // Pending action that survives auth redirect
 export interface PendingRecommendAction {
@@ -298,6 +300,7 @@ interface AppState {
   // Navigation
   currentView: AppView
   dashboardTab: DashboardTab
+  activitySubTab: ActivitySubTab
   miniSiteSlug: string | null
   showAuthModal: boolean
   authModalReason: string | null
@@ -324,6 +327,7 @@ interface AppState {
   showConfetti: boolean
   levelUpAnimation: { show: boolean; level: number } | null
   spinResult: SpinResult | null
+  isDataLoaded: boolean
 
   // Actions
   setUser: (user: User | null, token: string | null) => void
@@ -331,6 +335,7 @@ interface AppState {
   setAuthLoading: (loading: boolean) => void
   setCurrentView: (view: AppView) => void
   setDashboardTab: (tab: DashboardTab) => void
+  setActivitySubTab: (tab: ActivitySubTab) => void
   setMiniSiteSlug: (slug: string | null) => void
   setShowAuthModal: (show: boolean, reason?: string | null) => void
   setPendingAction: (action: PendingRecommendAction | null) => void
@@ -358,9 +363,14 @@ interface AppState {
   setSpinResult: (result: SpinResult | null) => void
   updateUserXp: (xp: number, level: number, coins: number) => void
   updateUserSpins: (spinsToday: number, lastSpinAt: string) => void
+  updateUserRole: (role: UserRole) => void
+  setDataLoaded: (loaded: boolean) => void
+  preloadUserData: (user: User, token: string) => Promise<void>
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>()(
+  persist(
+    (set) => ({
   // Auth
   user: null,
   token: null,
@@ -369,7 +379,8 @@ export const useAppStore = create<AppState>((set) => ({
 
   // Navigation
   currentView: 'public',
-  dashboardTab: 'overview',
+  dashboardTab: 'catalog',
+  activitySubTab: 'orders',
   miniSiteSlug: null,
   showAuthModal: false,
   authModalReason: null,
@@ -396,6 +407,7 @@ export const useAppStore = create<AppState>((set) => ({
   showConfetti: false,
   levelUpAnimation: null,
   spinResult: null,
+  isDataLoaded: false,
 
   // Actions
   setUser: (user, token) =>
@@ -404,12 +416,13 @@ export const useAppStore = create<AppState>((set) => ({
       token,
       isAuthenticated: !!user,
       isAuthLoading: false,
-      // If there's a pending action, stay on public view so the action can be resumed
-      // Otherwise navigate to public so they see explore by default
+      // If there's a pending action, stay on current view so the action can be resumed
       currentView: user
         ? (state.pendingAction ? state.currentView : 'public')
         : 'public',
-      dashboardTab: 'overview',
+      dashboardTab: user 
+        ? (state.pendingAction ? state.dashboardTab : 'overview') 
+        : 'catalog',
     })),
 
   logout: () =>
@@ -418,7 +431,7 @@ export const useAppStore = create<AppState>((set) => ({
       token: null,
       isAuthenticated: false,
       currentView: 'public',
-      dashboardTab: 'overview',
+      dashboardTab: 'catalog',
       products: [],
       recommenderProducts: [],
       orders: [],
@@ -427,6 +440,7 @@ export const useAppStore = create<AppState>((set) => ({
       showAuthModal: false,
       authModalReason: null,
       pendingAction: null,
+      isDataLoaded: false,
     }),
 
   setAuthLoading: (loading) => set({ isAuthLoading: loading }),
@@ -434,6 +448,8 @@ export const useAppStore = create<AppState>((set) => ({
   setCurrentView: (view) => set({ currentView: view }),
 
   setDashboardTab: (tab) => set({ dashboardTab: tab }),
+
+  setActivitySubTab: (tab) => set({ activitySubTab: tab }),
 
   setMiniSiteSlug: (slug) => set({ miniSiteSlug: slug, currentView: slug ? 'mini-site' : 'public' }),
 
@@ -532,7 +548,103 @@ export const useAppStore = create<AppState>((set) => ({
     set((state) => ({
       user: state.user ? { ...state.user, spinsToday, lastSpinAt } : null,
     })),
-}))
+
+  updateUserRole: (role) =>
+    set((state) => ({
+      user: state.user ? { ...state.user, role } : null,
+    })),
+
+  setDataLoaded: (loaded) => set({ isDataLoaded: loaded }),
+
+  preloadUserData: async (user, token) => {
+    try {
+      const ordersParam = user.role === 'recommender' ? `recommenderId=${user.id}` : `ownerId=${user.id}`
+      const headers: Record<string, string> = { Authorization: `Bearer ${token}` }
+      const promises: Promise<void>[] = []
+
+      // Product fetch (owners)
+      promises.push(
+        fetch(`/api/products?ownerId=${user.id}`, { headers }).then(async (res) => {
+          if (res.ok) {
+            const data = await res.json()
+            set({ products: data.products || data || [] })
+          }
+        }).catch(console.error)
+      )
+
+      // Orders fetch
+      promises.push(
+        fetch(`/api/orders?${ordersParam}`, { headers }).then(async (res) => {
+          if (res.ok) {
+            const data = await res.json()
+            set({ orders: data.orders || data || [] })
+          }
+        }).catch(console.error)
+      )
+
+      // Recommender specific
+      if (user.role === 'recommender') {
+        promises.push(
+          fetch(`/api/recommender?userId=${user.id}`, { headers }).then(async (res) => {
+            if (res.ok) {
+              const data = await res.json()
+              set({ recommenderProducts: data.products || data.recommenderProducts || data || [] })
+            }
+          }).catch(console.error)
+        )
+        promises.push(
+          fetch(`/api/clicks?userId=${user.id}`, { headers }).then(async (res) => {
+            if (res.ok) {
+              const data = await res.json()
+              set({ clickStats: data })
+            }
+          }).catch(console.error)
+        )
+      }
+
+      // Gamification
+      promises.push(
+        fetch(`/api/gamification?userId=${user.id}`, { headers }).then(async (res) => {
+          if (res.ok) {
+            const data = await res.json()
+            set({ gamificationData: data })
+          }
+        }).catch(console.error)
+      )
+      promises.push(
+        fetch('/api/gamification?action=leaderboard', { headers }).then(async (res) => {
+          if (res.ok) {
+            const data = await res.json()
+            set({ leaderboard: data.leaderboard || [] })
+          }
+        }).catch(console.error)
+      )
+      promises.push(
+        fetch('/api/gamification?action=rewards', { headers }).then(async (res) => {
+          if (res.ok) {
+            const data = await res.json()
+            set({ rewards: data.rewards || [] })
+          }
+        }).catch(console.error)
+      )
+
+      await Promise.all(promises)
+      set({ isDataLoaded: true })
+    } catch (error) {
+      console.error('Failed to preload user data:', error)
+    }
+  },
+    }),
+    {
+      name: 'recopay-storage',
+      partialize: (state) => ({
+        user: state.user,
+        token: state.token,
+        isAuthenticated: state.isAuthenticated,
+      }),
+    }
+  )
+)
 
 // Level names in French
 export const LEVEL_NAMES: Record<number, string> = {

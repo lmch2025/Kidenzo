@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
+import Image from 'next/image'
 import {
   motion,
   AnimatePresence,
@@ -43,6 +45,9 @@ import {
   Coins,
   Copy,
   SlidersHorizontal,
+  Youtube,
+  PlayCircle,
+  X
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -57,9 +62,14 @@ import {
 } from '@/components/ui/sheet'
 import { useAppStore, formatPrice } from '@/lib/store'
 import { Slider } from '@/components/ui/slider'
+import CommissionPopup from './CommissionPopup'
+import MarketingShareModal from './MarketingShareModal'
+import AuthScreen from '@/components/AuthScreen'
+import VerifiedReviews from './VerifiedReviews'
 
 interface MiniSiteViewProps {
   slug: string
+  onClose?: () => void
 }
 
 interface MiniSiteData {
@@ -78,6 +88,7 @@ interface MiniSiteData {
     maxCommission: number
     weight: string
     dimensions: string
+    youtubeUrl: string | null
     images: { id: string; storageUrl: string; position: number }[]
     owner: {
       id: string
@@ -168,6 +179,55 @@ function TrustBadge({ icon: Icon, label, desc }: { icon: React.ElementType; labe
   )
 }
 
+// ─── PRODUCT VIDEO ───
+function ProductVideo({ youtubeUrl, thumbnailUrl }: { youtubeUrl: string, thumbnailUrl?: string | null }) {
+  const [videoLoaded, setVideoLoaded] = useState(false)
+
+  if (!youtubeUrl) return null
+
+  let videoId = ''
+  const watchMatch = youtubeUrl.match(/v=([^&]+)/)
+  if (watchMatch) {
+    videoId = watchMatch[1]
+  } else if (youtubeUrl.includes('youtu.be/')) {
+    videoId = youtubeUrl.split('youtu.be/')[1]?.split('?')[0]
+  } else if (youtubeUrl.includes('youtube.com/shorts/')) {
+    videoId = youtubeUrl.split('youtube.com/shorts/')[1]?.split('?')[0]
+  }
+
+  if (!videoId) return null
+
+  const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=1&rel=0&modestbranding=1`
+
+  return (
+    <div className="space-y-3">
+      <h3 className="text-sm font-semibold text-white/60 uppercase tracking-wider flex items-center gap-2">
+        <Youtube className="w-4 h-4 text-orange-400/60" />
+        Vidéo du produit
+      </h3>
+      <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-orange-500/10 border border-white/10 aspect-video bg-black/50">
+        {/* Thumbnail visible until video loads */}
+        {thumbnailUrl && (
+          <div className={`absolute inset-0 z-10 transition-opacity duration-700 ease-in-out ${videoLoaded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+            <Image src={thumbnailUrl} alt="Video thumbnail" fill sizes="100vw" className="object-cover" />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+               <div className="w-10 h-10 rounded-full border-4 border-white/30 border-t-white animate-spin" />
+            </div>
+          </div>
+        )}
+        <iframe
+          src={embedUrl}
+          className="w-full h-full absolute inset-0 z-0"
+          frameBorder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          onLoad={() => setVideoLoaded(true)}
+        ></iframe>
+      </div>
+    </div>
+  )
+}
+
 // ─── FEATURE CARD ───
 function FeatureCard({ icon: Icon, title, desc, delay }: { icon: React.ElementType; title: string; desc: string; delay: number }) {
   return (
@@ -224,61 +284,59 @@ function SocialProofNotification({ index }: { index: number }) {
 }
 
 // ─── STICKY CTA BAR ───
-function StickyCTA({ onClick, price, disabled, hide }: { onClick: () => void; price: number; disabled: boolean; hide: boolean }) {
-  const [visible, setVisible] = useState(false)
+function StickyCTA({ onOrderClick, onRecommendClick, price, disabled, showRecommend, maxCommission }: { onOrderClick: () => void; onRecommendClick: () => void; price: number; disabled: boolean; showRecommend: boolean; maxCommission: number }) {
+  if (typeof document === 'undefined') return null;
 
-  useEffect(() => {
-    const handleScroll = () => {
-      // Show once past hero section (roughly 60vh)
-      setVisible(window.scrollY > window.innerHeight * 0.5)
-    }
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
-
-  if (hide) return null
-
-  return (
-    <AnimatePresence>
-      {visible && (
-        <motion.div
-          initial={{ y: 100 }}
-          animate={{ y: 0 }}
-          exit={{ y: 100 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          className="fixed bottom-0 left-0 right-0 z-50 safe-area-bottom"
-        >
-          <div className="bg-black/90 backdrop-blur-xl border-t border-white/10 px-4 py-3">
+  return createPortal(
+    <div className="fixed bottom-0 left-0 right-0 z-[100] safe-area-bottom">
+          <div className="bg-black/90 backdrop-blur-xl border-t border-white/10 px-4 py-3 pb-safe">
             <div className="max-w-lg mx-auto flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] text-white/40">Prix</p>
+              <div className="flex flex-col shrink-0 mr-2">
+                <p className="text-[10px] text-white/40">Prix direct</p>
                 <p className="text-lg font-black bg-gradient-to-r from-orange-400 to-pink-400 bg-clip-text text-transparent">
                   <AnimatedPrice value={price} />
                 </p>
               </div>
-              <motion.button
-                onClick={onClick}
-                disabled={disabled}
-                className="flex-1 max-w-[240px] h-12 rounded-xl bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 text-white font-bold text-sm shadow-xl relative overflow-hidden disabled:opacity-60"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-orange-400 via-pink-400 to-purple-400"
-                  animate={{ opacity: [0, 0.5, 0] }}
-                  transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                  style={{ filter: 'blur(20px)' }}
-                />
-                <span className="relative flex items-center justify-center gap-2">
-                  <ShoppingBag className="w-4 h-4" />
-                  Commander
-                </span>
-              </motion.button>
+              <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                {showRecommend && (
+                  <motion.button
+                    onClick={onRecommendClick}
+                    className="flex-1 h-12 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold text-sm border border-emerald-500/20 shadow-lg relative overflow-hidden transition-colors flex flex-col items-center justify-center leading-tight"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <span className="relative flex items-center justify-center gap-1.5 text-sm">
+                      <Share2 className="w-3.5 h-3.5" />
+                      Recommander
+                    </span>
+                    {maxCommission > 0 && (
+                      <span className="text-[9px] font-medium opacity-80 mt-0.5">Jusqu'à {maxCommission}% de gain</span>
+                    )}
+                  </motion.button>
+                )}
+                <motion.button
+                  onClick={onOrderClick}
+                  disabled={disabled}
+                  className="flex-1 h-12 rounded-xl bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 text-white font-bold text-sm shadow-xl relative overflow-hidden disabled:opacity-60"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-r from-orange-400 via-pink-400 to-purple-400"
+                    animate={{ opacity: [0, 0.5, 0] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                    style={{ filter: 'blur(20px)' }}
+                  />
+                  <span className="relative flex items-center justify-center gap-2">
+                    <ShoppingBag className="w-4 h-4" />
+                    <span>Commander</span>
+                  </span>
+                </motion.button>
+              </div>
             </div>
           </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+      </div>,
+      document.body
   )
 }
 
@@ -367,7 +425,7 @@ function HeroCarousel({ images, productName, category, stock }: {
         <AnimatePresence initial={false} custom={direction} mode="wait">
           <motion.img
             key={currentIndex}
-            src={images[currentIndex]?.storageUrl || '/product-hero.png'}
+            src={images[currentIndex]?.storageUrl || '/product-hero.webp'}
             alt={`${productName} - Image ${currentIndex + 1}`}
             className="absolute inset-0 w-full h-full object-cover"
             custom={direction}
@@ -487,11 +545,13 @@ function ParallaxImageSection({ src, alt, overlayText, overlaySubtext }: {
       transition={{ duration: 0.8 }}
       className="relative rounded-2xl overflow-hidden"
     >
-      <motion.div style={{ y, scale }} className="w-full h-56 sm:h-64">
-        <img
+      <motion.div style={{ y, scale }} className="w-full h-56 sm:h-64 relative">
+        <Image
           src={src}
           alt={alt}
-          className="w-full h-full object-cover"
+          fill
+          sizes="(max-width: 768px) 100vw, 33vw"
+          className="object-cover"
         />
       </motion.div>
       <div className="absolute inset-0 bg-gradient-to-t from-[#0a0118] via-[#0a0118]/50 to-transparent" />
@@ -545,12 +605,14 @@ function HorizontalGallery({ images, productName }: {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={isInView ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.9 }}
               transition={{ delay: i * 0.08, duration: 0.4 }}
-              className="shrink-0 w-36 h-36 sm:w-44 sm:h-44 rounded-xl overflow-hidden border border-white/[0.08] group"
+              className="shrink-0 w-36 h-36 sm:w-44 sm:h-44 rounded-xl overflow-hidden border border-white/[0.08] group relative"
             >
-              <img
+              <Image
                 src={img.storageUrl}
                 alt={`${productName} - ${i + 1}`}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                fill
+                sizes="(max-width: 768px) 150px, 200px"
+                className="object-cover group-hover:scale-105 transition-transform duration-500"
               />
             </motion.div>
           ))}
@@ -579,13 +641,30 @@ function SpecItem({ icon: Icon, label, value }: { icon: React.ElementType; label
 // ═══════════════════════════════════════════════════════════════════
 // ─── MAIN MINISITEVIEW COMPONENT ───
 // ═══════════════════════════════════════════════════════════════════
-export default function MiniSiteView({ slug }: MiniSiteViewProps) {
-  const { setCurrentView } = useAppStore()
+export default function MiniSiteView({ slug, onClose }: MiniSiteViewProps) {
+  const {
+    setCurrentView,
+    isAuthenticated,
+    user,
+    token,
+    showAuthModal,
+    setShowAuthModal,
+    setDashboardTab,
+    authModalReason,
+    pendingAction,
+    setPendingAction,
+    clearPendingAction,
+  } = useAppStore()
 
   const [miniSite, setMiniSite] = useState<MiniSiteData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [orderSheetOpen, setOrderSheetOpen] = useState(false)
+  const [commissionPopupOpen, setCommissionPopupOpen] = useState(false)
+  const [pendingCommission, setPendingCommission] = useState<number | null>(null)
+  const [shareModalOpen, setShareModalOpen] = useState(false)
+  const [shareModalLink, setShareModalLink] = useState('')
+  const [shareModalCommission, setShareModalCommission] = useState(0)
   const [orderSuccess, setOrderSuccess] = useState(false)
   const [orderLoading, setOrderLoading] = useState(false)
   const [orderError, setOrderError] = useState('')
@@ -594,6 +673,10 @@ export default function MiniSiteView({ slug }: MiniSiteViewProps) {
   const [shareLink, setShareLink] = useState('')
   const [shareCopied, setShareCopied] = useState(false)
   const [isSavingCommission, setIsSavingCommission] = useState(false)
+
+  // Scroll tracking for StickyCTA
+  const heroRef = useRef<HTMLDivElement>(null)
+  const heroInView = useInView(heroRef, { margin: "0px" })
 
   // Order form fields
   const [customerName, setCustomerName] = useState('')
@@ -617,7 +700,7 @@ export default function MiniSiteView({ slug }: MiniSiteViewProps) {
     if (product.images && product.images.length > 0) {
       return product.images
     }
-    return [{ id: 'fallback', storageUrl: '/product-hero.png', position: 0 }]
+    return [{ id: 'fallback', storageUrl: '/product-hero.webp', position: 0 }]
   }, [])
 
   // Fetch mini-site data
@@ -663,6 +746,96 @@ export default function MiniSiteView({ slug }: MiniSiteViewProps) {
 
     if (slug) fetchData()
   }, [slug])
+
+  // ── Auto-resume pending action after authentication ──
+  useEffect(() => {
+    if (!isAuthenticated || !user || !pendingAction || !miniSite) return
+
+    const resumeAction = async () => {
+      const { miniSiteId, commissionPct } = pendingAction
+
+      // Ensure we are resuming for THIS mini site
+      if (miniSiteId === miniSite.id) {
+        clearPendingAction()
+        
+        setIsSavingCommission(true)
+        try {
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+          if (token) headers['Authorization'] = `Bearer ${token}`
+
+          await fetch('/api/recommender', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              userId: user.id,
+              miniSiteId,
+              commissionPct,
+            }),
+          })
+
+          const link = `${window.location.origin}/s/${miniSite.slug}?ref=${user.id}`
+          setShareModalLink(link)
+          setShareModalCommission(commissionPct)
+          setShareModalOpen(true)
+        } catch (error) {
+          console.error('Failed to save commission:', error)
+        } finally {
+          setIsSavingCommission(false)
+        }
+      }
+    }
+
+    const timer = setTimeout(resumeAction, 300)
+    return () => clearTimeout(timer)
+  }, [isAuthenticated, user, pendingAction, miniSite, token, clearPendingAction])
+
+  const handleRecommendClick = () => {
+    if (!miniSite) return
+    setCommissionPopupOpen(true)
+  }
+
+  const handleShareFromPopup = async (productId: string, miniSiteId: string, commissionPct: number) => {
+    if (!isAuthenticated) {
+      setPendingAction({
+        productId,
+        miniSiteId,
+        commissionPct,
+        timestamp: Date.now(),
+      })
+      setCommissionPopupOpen(false)
+      setShowAuthModal(true, 'Connectez-vous pour partager votre lien de recommandation et commencer à gagner')
+      return
+    }
+
+    setIsSavingCommission(true)
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (token) headers['Authorization'] = `Bearer ${token}`
+
+      await fetch('/api/recommender', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          userId: user?.id,
+          miniSiteId,
+          commissionPct,
+        }),
+      })
+
+      if (user) {
+        const link = `${window.location.origin}/s/${slug}?ref=${user.id}`
+        setShareModalLink(link)
+        setShareModalCommission(commissionPct)
+        setCommissionPopupOpen(false)
+        setShareModalOpen(true)
+        setPendingCommission(null)
+      }
+    } catch (error) {
+      console.error('Failed to save commission:', error)
+    } finally {
+      setIsSavingCommission(false)
+    }
+  }
 
   // Track click when visitor arrives via referral link
   useEffect(() => {
@@ -832,9 +1005,9 @@ export default function MiniSiteView({ slug }: MiniSiteViewProps) {
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-            className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-pink-500 flex items-center justify-center"
+            className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-pink-500 flex items-center justify-center relative"
           >
-            <img src="/icon.png" alt="Loading" className="w-10 h-10 object-contain drop-shadow-md" />
+            <Image src="/icon.png" alt="Loading" width={40} height={40} className="object-contain drop-shadow-md" />
           </motion.div>
           <p className="text-white/40 text-sm">Chargement du produit...</p>
         </motion.div>
@@ -856,7 +1029,7 @@ export default function MiniSiteView({ slug }: MiniSiteViewProps) {
           </div>
           <p className="text-white/60 text-lg">{error || 'Produit introuvable'}</p>
           <Button
-            onClick={() => (window.location.href = '/')}
+            onClick={() => onClose ? onClose() : (window.location.href = '/')}
             variant="ghost"
             className="text-orange-400 hover:text-orange-300"
           >
@@ -871,11 +1044,18 @@ export default function MiniSiteView({ slug }: MiniSiteViewProps) {
   const product = miniSite.product
   const allImages = getProductImages(product)
 
+  // Seeded stats based on product ID
+  const statsHash = Array.from(product.id || '').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  const productRating = (4.3 + (statsHash % 8) / 10).toFixed(1)
+  const productReviews = 40 + (statsHash % 361)
+  const productSold = Math.floor(productReviews * (1.5 + (statsHash % 25) / 10))
+  const fullStarsCount = Math.floor(parseFloat(productRating))
+
   // Product features
   const productFeatures = [
     { icon: Shield, title: 'Qualité garantie', desc: 'Produit vérifié et certifié' },
     { icon: Truck, title: 'Livraison rapide', desc: 'Expédition sous 24-48h' },
-    { icon: Star, title: 'Satisfaction client', desc: 'Note moyenne 4.8/5' },
+    { icon: Star, title: 'Satisfaction client', desc: `Note moyenne ${productRating}/5` },
     { icon: Clock, title: 'Support 7j/7', desc: 'Assistance disponible' },
   ]
 
@@ -888,9 +1068,9 @@ export default function MiniSiteView({ slug }: MiniSiteViewProps) {
   const viewerCount = ((product.name.length * 7) % 5) + 3
 
   return (
-    <div className="min-h-screen bg-[#0a0118] relative overflow-hidden">
+    <div className="min-h-screen bg-[#0a0118] relative pb-2 font-sans text-white selection:bg-orange-500/30 selection:text-white overflow-x-hidden">
       {/* Background ambient effects */}
-      <div className="fixed inset-0 pointer-events-none">
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-orange-500/8 rounded-full blur-[120px]" />
         <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-pink-500/6 rounded-full blur-[100px]" />
         <div className="absolute top-1/2 left-0 w-[300px] h-[300px] bg-purple-500/5 rounded-full blur-[80px]" />
@@ -924,33 +1104,35 @@ export default function MiniSiteView({ slug }: MiniSiteViewProps) {
       </AnimatePresence>
 
       {/* ─── HEADER ─── */}
-      <header className="fixed top-0 left-0 right-0 z-50 transition-all duration-300">
-        <div className="bg-black/60 backdrop-blur-xl border-b border-white/5">
-          <div className="max-w-lg mx-auto flex items-center justify-between px-4 py-3">
-            <button
-              onClick={() => (window.location.href = '/')}
-              className="flex items-center gap-1.5 text-white/50 hover:text-white transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="text-xs font-medium">Retour</span>
-            </button>
-            <div className="flex items-center gap-2">
+      <div className="sticky top-0 z-50 w-full h-0 overflow-visible">
+        <header className="transition-all duration-300">
+          <div className="bg-black/60 backdrop-blur-xl border-b border-white/5">
+            <div className="max-w-lg mx-auto flex items-center justify-between px-4 py-3">
               <button
-                onClick={handleShare}
-                className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
+                onClick={() => onClose ? onClose() : (window.location.href = '/')}
+                className="flex items-center gap-1.5 text-white/50 hover:text-white transition-colors"
               >
-                <Share2 className="w-3.5 h-3.5 text-white/60" />
+                <ArrowLeft className="w-4 h-4" />
+                <span className="text-xs font-medium">Retour</span>
               </button>
-              <button
-                onClick={() => setLiked(!liked)}
-                className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
-              >
-                <Heart className={`w-3.5 h-3.5 transition-colors ${liked ? 'text-red-400 fill-red-400' : 'text-white/60'}`} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleShare}
+                  className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
+                >
+                  <Share2 className="w-3.5 h-3.5 text-white/60" />
+                </button>
+                <button
+                  onClick={() => setLiked(!liked)}
+                  className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
+                >
+                  <Heart className={`w-3.5 h-3.5 transition-colors ${liked ? 'text-red-400 fill-red-400' : 'text-white/60'}`} />
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
+      </div>
 
       {/* ═══════════════════════════════════════════════════════════ */}
       {/* ─── MAIN CONTENT ─── */}
@@ -958,15 +1140,17 @@ export default function MiniSiteView({ slug }: MiniSiteViewProps) {
       <div className="max-w-lg mx-auto relative z-10">
 
         {/* ━━━ 1. HERO CAROUSEL ━━━ */}
-        <HeroCarousel
-          images={allImages}
-          productName={product.name}
-          category={product.category}
-          stock={product.stock}
-        />
+        <div ref={heroRef}>
+          <HeroCarousel
+            images={allImages}
+            productName={product.name}
+            category={product.category}
+            stock={product.stock}
+          />
+        </div>
 
         {/* Content sections with negative margin to overlap hero */}
-        <div className="relative -mt-20 px-4 pb-32 space-y-8">
+        <div className="relative -mt-20 px-4 pb-24 space-y-8">
 
           {/* ━━━ 2. PRODUCT INFO ━━━ */}
           <ScrollSection>
@@ -1018,19 +1202,26 @@ export default function MiniSiteView({ slug }: MiniSiteViewProps) {
                   {[1, 2, 3, 4, 5].map((star) => (
                     <Star
                       key={star}
-                      className={`w-3.5 h-3.5 ${star <= 4 ? 'text-yellow-400 fill-yellow-400' : 'text-yellow-400/30 fill-yellow-400/30'}`}
+                      className={`w-3.5 h-3.5 ${star <= fullStarsCount ? 'text-yellow-400 fill-yellow-400' : 'text-yellow-400/30 fill-yellow-400/30'}`}
                     />
                   ))}
                 </div>
-                <span className="text-white/40 text-xs">4.8 (127 avis)</span>
+                <span className="text-white/40 text-xs">{productRating} ({productReviews} avis)</span>
                 <span className="text-white/20 text-xs">·</span>
                 <span className="text-emerald-400/60 text-xs flex items-center gap-0.5">
                   <Users className="w-3 h-3" />
-                  234 vendus
+                  {productSold} vendus
                 </span>
               </div>
             </div>
           </ScrollSection>
+
+          {/* ━━━ VIDEO ━━━ */}
+          {product.youtubeUrl && (
+            <ScrollSection delay={0.05}>
+              <ProductVideo youtubeUrl={product.youtubeUrl} thumbnailUrl={product.imageUrl} />
+            </ScrollSection>
+          )}
 
           {/* ━━━ 3. DESCRIPTION ━━━ */}
           <ScrollSection delay={0.05}>
@@ -1119,10 +1310,12 @@ export default function MiniSiteView({ slug }: MiniSiteViewProps) {
             <div className="relative rounded-2xl overflow-hidden">
               {/* Background product image with overlay */}
               <div className="absolute inset-0">
-                <img
+                <Image
                   src={trustBgImage.storageUrl}
                   alt=""
-                  className="w-full h-full object-cover opacity-15"
+                  fill
+                  sizes="100vw"
+                  className="object-cover opacity-15"
                 />
                 <div className="absolute inset-0 bg-gradient-to-br from-[#0a0118]/90 via-[#0a0118]/85 to-[#0a0118]/90" />
               </div>
@@ -1261,14 +1454,33 @@ export default function MiniSiteView({ slug }: MiniSiteViewProps) {
             </div>
           </ScrollSection>
 
+          {/* ─── AVIS VÉRIFIÉS ─── */}
+          <ScrollSection delay={0.1}>
+            <VerifiedReviews productId={miniSite.productId} />
+          </ScrollSection>
+
           {/* ━━━ 11. FOOTER ━━━ */}
           <ScrollSection delay={0.05}>
-            <div className="pt-6 pb-4 border-t border-white/5 text-center space-y-2">
+            <div className="pt-6 pb-4 border-t border-white/5 text-center space-y-3">
               <div className="flex items-center justify-center gap-2">
-                <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-orange-500 via-pink-500 to-purple-500 flex items-center justify-center">
-                  <Sparkles className="w-3 h-3 text-white" />
-                </div>
+                <img 
+                  src="/icon.png" 
+                  alt="Kidenzo Logo" 
+                  className="w-6 h-6 object-contain" 
+                />
                 <span className="text-sm font-bold gradient-text-warm">Kidenzo</span>
+              </div>
+              <div className="flex flex-col items-center gap-2 px-4">
+                <div className="flex items-center justify-center gap-4 text-white/40 text-[10px] flex-wrap">
+                  <a href="/mentions-legales" className="hover:text-white transition-colors">Mentions Légales</a>
+                  <a href="/cgv" className="hover:text-white transition-colors">CGV</a>
+                  <a href="/confidentialite" className="hover:text-white transition-colors">Confidentialité</a>
+                </div>
+                <div className="flex items-center justify-center gap-4 text-white/40 text-[10px] flex-wrap">
+                  <a href="/paiements" className="hover:text-white transition-colors">Paiements</a>
+                  <a href="/livraisons" className="hover:text-white transition-colors">Livraisons</a>
+                  <a href="/retours" className="hover:text-white transition-colors">Retours</a>
+                </div>
               </div>
               <p className="text-white/20 text-[10px]">
                 Plateforme de recommandation sécurisée · © {new Date().getFullYear()}
@@ -1280,10 +1492,12 @@ export default function MiniSiteView({ slug }: MiniSiteViewProps) {
 
       {/* ─── STICKY CTA ─── */}
       <StickyCTA
-        onClick={() => setOrderSheetOpen(true)}
+        onOrderClick={() => setOrderSheetOpen(true)}
+        onRecommendClick={handleRecommendClick}
         price={finalPrice}
-        disabled={orderSuccess}
-        hide={orderSheetOpen}
+        disabled={miniSite.product.stock <= 0}
+        showRecommend={!referrerId}
+        maxCommission={miniSite.product.recommenderMaxCommission ?? miniSite.product.maxCommission}
       />
 
       {/* ─── ORDER SHEET ─── */}
@@ -1686,6 +1900,105 @@ export default function MiniSiteView({ slug }: MiniSiteViewProps) {
           </AnimatePresence>
         </SheetContent>
       </Sheet>
+
+      {/* ── Commission Popup ── */}
+      {miniSite && (
+        <CommissionPopup
+          open={commissionPopupOpen}
+          onClose={() => setCommissionPopupOpen(false)}
+          product={{
+            id: miniSite.product.id,
+            name: miniSite.product.name,
+            basePrice: miniSite.product.basePrice,
+            maxCommission: miniSite.product.maxCommission,
+            description: miniSite.product.description,
+            imageUrl: miniSite.product.images && miniSite.product.images.length > 0 ? miniSite.product.images[0].storageUrl : undefined,
+            miniSite: { id: miniSite.id, slug: miniSite.slug }
+          }}
+          onShare={handleShareFromPopup}
+          isSaving={isSavingCommission}
+          initialCommission={pendingCommission}
+        />
+      )}
+
+      {/* ── Marketing Share Modal ── */}
+      {miniSite && (
+        <MarketingShareModal
+          open={shareModalOpen}
+          onClose={() => {
+            setShareModalOpen(false)
+            if (isAuthenticated && !pendingAction) {
+              setCurrentView('dashboard')
+              setDashboardTab('overview')
+            }
+          }}
+          product={{
+            name: miniSite.product.name,
+            basePrice: miniSite.product.basePrice,
+            imageUrl: miniSite.product.images && miniSite.product.images.length > 0 ? miniSite.product.images[0].storageUrl : undefined,
+            description: miniSite.product.description,
+            category: miniSite.product.category,
+          }}
+          commissionPct={shareModalCommission}
+          shareLink={shareModalLink}
+        />
+      )}
+
+      {/* ── Auth Modal ── */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {showAuthModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+            >
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-black/70 backdrop-blur-md"
+                onClick={() => setShowAuthModal(false)}
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                className="relative z-10 w-full max-w-md max-h-[95dvh] overflow-hidden rounded-2xl"
+              >
+                <button
+                  onClick={() => setShowAuthModal(false)}
+                  className="absolute top-3 right-3 z-20 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/40 hover:text-white/80 hover:bg-white/20 transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                {authModalReason && (
+                  <div className="bg-gradient-to-r from-orange-500/10 via-pink-500/10 to-purple-500/10 border-b border-orange-500/20 px-5 py-3 rounded-t-2xl">
+                    <p className="text-white/60 text-xs text-center flex items-center justify-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-orange-400" />
+                      {authModalReason}
+                    </p>
+                  </div>
+                )}
+                {pendingAction && (
+                  <div className="bg-emerald-500/5 border-b border-emerald-500/15 px-5 py-2.5">
+                    <div className="flex items-center gap-2 justify-center">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <p className="text-emerald-400/80 text-[11px] font-medium">
+                        Votre commission de {pendingAction.commissionPct}% sera automatiquement enregistrée après connexion
+                      </p>
+                    </div>
+                  </div>
+                )}
+                <AuthScreen isModal={true} />
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   )
 }
