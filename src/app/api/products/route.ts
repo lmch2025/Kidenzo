@@ -4,6 +4,7 @@ import { db, withRetry } from '@/lib/db'
 export const dynamic = 'force-dynamic'
 import ytSearch from 'yt-search'
 import sharp from 'sharp'
+import 'cheerio' // Force Vercel @vercel/nft to include cheerio in the serverless function
 
 const IMGBB_API_KEY = process.env.IMGBB_API_KEY || '3ca1301a4e529153d12db10659925594'
 
