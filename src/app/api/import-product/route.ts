@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const maxDuration = 60; // Autoriser jusqu'à 60 secondes (limite Vercel Hobby) pour éviter les Timeouts
+export const dynamic = 'force-dynamic'; // Ne pas mettre en cache
 const FREE_MODELS = [
   'openai/gpt-oss-120b:free',
   'openai/gpt-oss-20b:free',
