@@ -23,72 +23,27 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 /**
- * Tente de lire le contenu d'une page via Jina Reader (proxy anti-blocage gratuit).
- * Jina Reader contourne les protections anti-bot d'Alibaba/AliExpress.
- * Retourne le contenu en texte Markdown propre.
+ * Utilise ScraperAPI pour contourner les protections anti-bot d'Alibaba.
+ * Rend le JavaScript de la page pour assurer que les données sont présentes.
  */
-async function fetchViaJinaReader(targetUrl: string): Promise<{ text: string; images: string[] }> {
-  const jinaUrl = `https://r.jina.ai/${targetUrl}`
-  const res = await fetch(jinaUrl, {
-    headers: {
-      'Accept': 'text/plain',
-      'X-No-Cache': 'true',
-    },
-    signal: AbortSignal.timeout(30000), // 30s timeout
-  })
+async function fetchViaScraperAPI(targetUrl: string): Promise<{ text: string; title: string; images: string[] }> {
+  const scraperApiKey = process.env.SCRAPER_API_KEY || '3565fc05ecea04a4dc89191a4eeab263';
+  
+  // Utilisation de render=true pour forcer l'exécution du JavaScript (nécessaire pour Alibaba)
+  const scraperUrl = `http://api.scraperapi.com?api_key=${scraperApiKey}&url=${encodeURIComponent(targetUrl)}&render=true`;
+  
+  const res = await fetch(scraperUrl, {
+    signal: AbortSignal.timeout(45000), // 45s car le rendu JS via ScraperAPI peut prendre du temps
+  });
 
   if (!res.ok) {
-    throw new Error(`Jina Reader failed: ${res.status}`)
+    throw new Error(`ScraperAPI failed: ${res.status}`);
   }
 
-  const text = await res.text()
+  const pageHtml = await res.text();
 
-  // Extraire les URLs d'images du contenu Markdown retourné par Jina
-  const markdownImageRegex = /!\[[^\]]*\]\(([^)]+)\)/g
-  const images: string[] = []
-  let match
-  while ((match = markdownImageRegex.exec(text)) !== null) {
-    let imgUrl = match[1]
-    if (imgUrl.startsWith('//')) imgUrl = 'https:' + imgUrl
-    if (
-      imgUrl.startsWith('http') &&
-      !imgUrl.includes('sprite') &&
-      !imgUrl.includes('icon') &&
-      !imgUrl.includes('logo') &&
-      !imgUrl.includes('avatar') &&
-      !imgUrl.includes('flag') &&
-      !imgUrl.includes('loading') &&
-      !imgUrl.includes('placeholder') &&
-      imgUrl.length > 30
-    ) {
-      images.push(imgUrl)
-    }
-  }
-
-  return { text, images }
-}
-
-/**
- * Fallback : Fetch direct du HTML (fonctionne en local, mais peut être bloqué en production).
- */
-async function fetchDirect(targetUrl: string): Promise<{ text: string; title: string; images: string[] }> {
-  const fetchRes = await fetch(targetUrl, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9,fr;q=0.8',
-      'Accept-Encoding': 'gzip, deflate, br',
-      'Cache-Control': 'no-cache',
-      'Pragma': 'no-cache',
-    },
-    signal: AbortSignal.timeout(15000),
-  })
-
-  if (!fetchRes.ok) throw new Error(`Direct fetch failed: ${fetchRes.status}`)
-  const pageHtml = await fetchRes.text()
-
-  const titleMatch = pageHtml.match(/<title[^>]*>([^<]+)<\/title>/i)
-  const title = titleMatch ? titleMatch[1].trim() : ''
+  const titleMatch = pageHtml.match(/<title[^>]*>([^<]+)<\/title>/i);
+  const title = titleMatch ? titleMatch[1].trim() : '';
 
   // Extraire le texte brut du HTML
   const text = pageHtml
@@ -100,15 +55,15 @@ async function fetchDirect(targetUrl: string): Promise<{ text: string; title: st
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/\s+/g, ' ')
-    .trim()
+    .trim();
 
   // Extraire les images du HTML
-  const imgRegex = /src=["']([^"']+\.(jpg|jpeg|png|webp)(\?[^"']*)?)\s*["']/gi
-  const images: string[] = []
-  let imgMatch
+  const imgRegex = /src=["']([^"']+\.(jpg|jpeg|png|webp)(\?[^"']*)?)\s*["']/gi;
+  const images: string[] = [];
+  let imgMatch;
   while ((imgMatch = imgRegex.exec(pageHtml)) !== null) {
-    let imgUrl = imgMatch[1]
-    if (imgUrl.startsWith('//')) imgUrl = 'https:' + imgUrl
+    let imgUrl = imgMatch[1];
+    if (imgUrl.startsWith('//')) imgUrl = 'https:' + imgUrl;
     if (
       imgUrl.startsWith('http') &&
       !imgUrl.includes('sprite') &&
@@ -122,11 +77,11 @@ async function fetchDirect(targetUrl: string): Promise<{ text: string; title: st
       !imgUrl.includes('data:image') &&
       imgUrl.length > 30
     ) {
-      images.push(imgUrl)
+      images.push(imgUrl);
     }
   }
 
-  return { text, title, images }
+  return { text, title, images };
 }
 
 // POST /api/import-product - Import product data from Alibaba/AliExpress URL
@@ -157,49 +112,27 @@ export async function POST(request: NextRequest) {
     const isAlibaba = hostname.includes('alibaba') || hostname.includes('aliexpress') || hostname.includes('1688')
 
     // ========================================================================
-    // Step 1: Lire le contenu de la page
-    // Stratégie : Jina Reader d'abord (contourne les anti-bots), puis fallback direct
+    // Step 1: Lire le contenu de la page via ScraperAPI
     // ========================================================================
     let pageText = ''
     let pageTitle = ''
     let extractedImages: string[] = []
 
-    // --- Tentative 1 : Jina Reader (proxy anti-blocage) ---
     try {
-      console.log('[import-product] Trying Jina Reader for:', url)
-      const jinaResult = await fetchViaJinaReader(url)
-      pageText = jinaResult.text
-
-      // Vérifier que Jina a retourné du contenu exploitable (pas une page de blocage)
-      if (pageText.length > 200) {
-        console.log('[import-product] Jina Reader success, text length:', pageText.length)
-        extractedImages = jinaResult.images
-
-        // Extraire le titre du contenu Jina (première ligne commençant par #)
-        const titleLine = pageText.split('\n').find(l => l.startsWith('# ') || l.startsWith('Title:'))
-        if (titleLine) {
-          pageTitle = titleLine.replace(/^#\s*/, '').replace(/^Title:\s*/i, '').trim()
-        }
+      console.log('[import-product] Trying ScraperAPI for:', url)
+      const scrapeResult = await fetchViaScraperAPI(url)
+      
+      // Vérifier que le titre n'est pas la page de blocage anti-bot d'Alibaba
+      if (scrapeResult.title && !scrapeResult.title.includes('Product Not Available') && !scrapeResult.title.includes('Security Check')) {
+        pageText = scrapeResult.text
+        pageTitle = scrapeResult.title
+        extractedImages = scrapeResult.images
+        console.log('[import-product] ScraperAPI success, text length:', pageText.length)
       } else {
-        console.warn('[import-product] Jina Reader returned too little content, falling back')
-        pageText = '' // Reset pour déclencher le fallback
+        console.warn('[import-product] ScraperAPI hit anti-bot wall or product not found.')
       }
-    } catch (jinaErr) {
-      console.warn('[import-product] Jina Reader failed:', jinaErr)
-    }
-
-    // --- Tentative 2 : Fetch direct (fallback) ---
-    if (!pageText) {
-      try {
-        console.log('[import-product] Trying direct fetch for:', url)
-        const directResult = await fetchDirect(url)
-        pageText = directResult.text
-        pageTitle = directResult.title
-        extractedImages = directResult.images
-        console.log('[import-product] Direct fetch success, text length:', pageText.length)
-      } catch (directErr) {
-        console.warn('[import-product] Direct fetch also failed:', directErr)
-      }
+    } catch (err) {
+      console.warn('[import-product] ScraperAPI failed:', err)
     }
 
     // Si aucune méthode n'a fonctionné
