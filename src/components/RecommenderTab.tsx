@@ -632,7 +632,7 @@ function MarketingShareModal({
                   <img
                     src={imageUrl}
                     alt={productName}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
@@ -1046,7 +1046,7 @@ export function RecommenderTab() {
                         <img
                           src={productImageUrl}
                           alt={product?.name ?? 'Produit'}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-contain"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">

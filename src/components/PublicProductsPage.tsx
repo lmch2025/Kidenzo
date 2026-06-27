@@ -897,7 +897,7 @@ export default function PublicProductsPage() {
                           alt={product.name}
                           fill
                           sizes="(max-width: 768px) 100vw, 33vw"
-                          className="object-cover group-hover:scale-105 transition-transform duration-500"
+                          className="object-contain bg-black/10 group-hover:scale-105 transition-transform duration-500"
                         />
                       ) : (
                         <Package className="w-14 h-14 text-orange-400/20 group-hover:scale-110 transition-transform duration-500" />

@@ -126,7 +126,7 @@ function MiniSiteCard({ miniSite, index, onCopy, copiedSlug }: MiniSiteCardProps
           <img
             src={mainImage}
             alt={miniSite.product.name}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+            className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-110"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">

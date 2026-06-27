@@ -137,7 +137,7 @@ export default function CommissionPopup({
               >
                 <div className="w-12 h-12 rounded-xl overflow-hidden bg-gradient-to-br from-orange-500/10 via-pink-500/5 to-purple-500/10 border border-white/10 shrink-0 relative">
                   {product.imageUrl ? (
-                    <Image src={product.imageUrl} alt={product.name} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover" />
+                    <Image src={product.imageUrl} alt={product.name} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-contain" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <Package className="w-5 h-5 text-orange-400/30" />

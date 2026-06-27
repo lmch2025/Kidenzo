@@ -209,7 +209,7 @@ function ProductVideo({ youtubeUrl, thumbnailUrl }: { youtubeUrl: string, thumbn
         {/* Thumbnail visible until video loads */}
         {thumbnailUrl && (
           <div className={`absolute inset-0 z-10 transition-opacity duration-700 ease-in-out ${videoLoaded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-            <Image src={thumbnailUrl} alt="Video thumbnail" fill sizes="100vw" className="object-cover" />
+            <Image src={thumbnailUrl} alt="Video thumbnail" fill sizes="100vw" className="object-contain bg-black/10" />
             <div className="absolute inset-0 flex items-center justify-center bg-black/20">
                <div className="w-10 h-10 rounded-full border-4 border-white/30 border-t-white animate-spin" />
             </div>
@@ -427,7 +427,7 @@ function HeroCarousel({ images, productName, category, stock }: {
             key={currentIndex}
             src={images[currentIndex]?.storageUrl || '/product-hero.webp'}
             alt={`${productName} - Image ${currentIndex + 1}`}
-            className="absolute inset-0 w-full h-full object-cover"
+            className="absolute inset-0 w-full h-full object-contain bg-black/10"
             custom={direction}
             variants={slideVariants}
             initial="enter"
@@ -551,7 +551,7 @@ function ParallaxImageSection({ src, alt, overlayText, overlaySubtext }: {
           alt={alt}
           fill
           sizes="(max-width: 768px) 100vw, 33vw"
-          className="object-cover"
+          className="object-contain bg-black/10"
         />
       </motion.div>
       <div className="absolute inset-0 bg-gradient-to-t from-[#0a0118] via-[#0a0118]/50 to-transparent" />
@@ -612,7 +612,7 @@ function HorizontalGallery({ images, productName }: {
                 alt={`${productName} - ${i + 1}`}
                 fill
                 sizes="(max-width: 768px) 150px, 200px"
-                className="object-cover group-hover:scale-105 transition-transform duration-500"
+                className="object-contain bg-black/10 group-hover:scale-105 transition-transform duration-500"
               />
             </motion.div>
           ))}
@@ -1315,7 +1315,7 @@ export default function MiniSiteView({ slug, onClose }: MiniSiteViewProps) {
                   alt=""
                   fill
                   sizes="100vw"
-                  className="object-cover opacity-15"
+                  className="object-contain opacity-15"
                 />
                 <div className="absolute inset-0 bg-gradient-to-br from-[#0a0118]/90 via-[#0a0118]/85 to-[#0a0118]/90" />
               </div>

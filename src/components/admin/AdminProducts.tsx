@@ -15,6 +15,7 @@ import {
   Image as ImageIcon,
   Tag,
   Warehouse,
+  Pencil,
 } from "lucide-react";
 import { formatPrice } from "@/lib/store";
 import { PRODUCT_CATEGORIES } from "@/lib/categories";
@@ -32,6 +33,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { EditProductModal } from "./EditProductModal";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -117,6 +119,7 @@ export function AdminProducts() {
   const [isLoading, setIsLoading] = useState(true);
   const [isToggling, setIsToggling] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [editingProduct, setEditingProduct] = useState<AdminProduct | null>(null);
 
   const limit = 12;
 
@@ -402,12 +405,22 @@ export function AdminProducts() {
                   isDeleting={isDeleting === product.id}
                   onToggleStatus={handleToggleStatus}
                   onDelete={handleDeleteProduct}
+                  onEdit={() => setEditingProduct(product)}
                 />
               ))}
             </AnimatePresence>
           </motion.div>
         )}
       </AnimatePresence>
+
+      <EditProductModal
+        isOpen={!!editingProduct}
+        product={editingProduct}
+        onClose={() => setEditingProduct(null)}
+        onSuccess={(updatedProduct) => {
+          setProducts((prev) => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+        }}
+      />
 
       {/* Pagination */}
       {totalPages > 1 && (
@@ -501,6 +514,7 @@ interface ProductCardProps {
   isDeleting: boolean;
   onToggleStatus: (id: string) => void;
   onDelete: (id: string) => void;
+  onEdit: () => void;
 }
 
 function ProductCard({
@@ -510,6 +524,7 @@ function ProductCard({
   isDeleting,
   onToggleStatus,
   onDelete,
+  onEdit,
 }: ProductCardProps) {
   const mainImage = product.images?.[0]?.storageUrl;
   const isActive = product.status === "active";
@@ -530,7 +545,7 @@ function ProductCard({
           <img
             src={mainImage}
             alt={product.name}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+            className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-110"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
@@ -673,6 +688,17 @@ function ProductCard({
               <ExternalLink className="w-3.5 h-3.5" />
             </motion.a>
           )}
+
+          {/* Edit */}
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={onEdit}
+            className="flex items-center justify-center w-8 h-8 rounded-lg bg-orange-500/10 text-orange-400 border border-orange-500/20 hover:bg-orange-500/20 transition-all"
+            title="Modifier"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </motion.button>
 
           {/* Delete */}
           <AlertDialog>

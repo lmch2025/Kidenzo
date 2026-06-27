@@ -34,7 +34,7 @@ export default async function ReviewPage(props: { params: Promise<{ orderId: str
         <h1 className="text-2xl font-bold text-center mb-6">Ton avis est important</h1>
         
         <div className="bg-white/10 rounded-2xl p-4 mb-6 flex items-center gap-4">
-          <img src={productImage} alt={product.name} className="w-16 h-16 rounded-xl object-cover" />
+          <img src={productImage} alt={product.name} className="w-16 h-16 rounded-xl object-contain bg-black/10" />
           <div>
             <p className="font-semibold line-clamp-1">{product.name}</p>
             <p className="text-sm text-white/50">Commande de {order.customerName}</p>

@@ -1224,6 +1224,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ setting: updated })
     }
 
+    // ─── Edit product ──────────────────────────────────────────────
+    if (action === 'edit-product') {
+      const { id, name, description, basePrice, category, stock, maxCommission, weight, dimensions, images } = body
+      if (!id) {
+        return NextResponse.json({ error: 'id is required' }, { status: 400 })
+      }
+
+      const product = await db.product.update({
+        where: { id },
+        data: {
+          name,
+          description,
+          basePrice,
+          category,
+          stock,
+          maxCommission,
+          weight,
+          dimensions,
+          images: {
+            deleteMany: {},
+            create: images?.map((img: any) => ({
+              storageUrl: img.url,
+              position: img.position,
+            })) || [],
+          },
+        },
+        include: {
+          images: { orderBy: { position: 'asc' } },
+          miniSite: { select: { id: true, slug: true } },
+          owner: { select: { id: true, name: true, phone: true } },
+        },
+      })
+
+      return NextResponse.json({ product })
+    }
+
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
   } catch (error) {
     console.error('Admin POST error:', error)

@@ -242,7 +242,7 @@ function OrderCard({ order, index, onStatusChange, isUpdating }: OrderCardProps)
             <img
               src={order.productImage}
               alt={order.product ?? 'Produit'}
-              className="w-10 h-10 rounded-lg object-cover shrink-0"
+              className="w-10 h-10 rounded-lg object-contain shrink-0"
             />
           ) : (
             <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">

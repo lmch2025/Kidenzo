@@ -19,8 +19,10 @@ import {
   X,
   Sparkles,
   Camera,
+  Pencil,
 } from 'lucide-react'
 import { useAppStore, formatPrice, type ImportProductResult } from '@/lib/store'
+import { EditProductModal, type AdminProduct } from '@/components/admin/EditProductModal'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -188,6 +190,7 @@ export function ProductsTab() {
   const [generatingMiniSite, setGeneratingMiniSite] = useState<string | null>(null)
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null)
   const [togglingStatus, setTogglingStatus] = useState<string | null>(null)
+  const [editingProduct, setEditingProduct] = useState<AdminProduct | null>(null)
 
   // Form state (Create Dialog)
   const [formName, setFormName] = useState('')
@@ -588,7 +591,7 @@ export function ProductsTab() {
                     <img
                       src={product.images[0].storageUrl}
                       alt={product.name}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500"
                     />
                   ) : (
                     <Package className="w-12 h-12 text-orange-400/30" />
@@ -618,10 +621,19 @@ export function ProductsTab() {
                         {CATEGORIES.find(c => c.value === product.category)?.label ?? product.category}
                       </Badge>
                     </div>
-                    <div className="text-right shrink-0">
+                    <div className="text-right shrink-0 flex flex-col items-end gap-2">
                       <p className="font-bold gradient-text text-sm">
                         {formatPrice(product.basePrice)}
                       </p>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 px-2 text-orange-400 hover:text-orange-500 hover:bg-orange-500/10"
+                        onClick={() => setEditingProduct(product as unknown as AdminProduct)}
+                      >
+                        <Pencil className="w-3.5 h-3.5 mr-1" />
+                        <span className="text-[10px]">Modifier</span>
+                      </Button>
                     </div>
                   </div>
 
@@ -717,6 +729,17 @@ export function ProductsTab() {
         </div>
       )}
 
+      {/* Edit Product Modal */}
+      <EditProductModal
+        isOpen={!!editingProduct}
+        product={editingProduct}
+        onClose={() => setEditingProduct(null)}
+        onSuccess={(updatedProduct) => {
+          updateProductInList(updatedProduct as any)
+          setEditingProduct(null)
+        }}
+      />
+
       {/* ─────── Create Product Dialog (Wizard) ─────── */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent className="glass-strong max-w-[95vw] w-full sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-xl">
@@ -768,7 +791,7 @@ export function ProductsTab() {
                             try {
                               for (const file of newFilesToProcess) {
                                 const base64String = await compressImage(file)
-                                const uploadRes = await fetch('/api/upload-imgbb', {
+                                const uploadRes = await fetch('/api/upload-cloudinary', {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({ image: base64String }),
@@ -792,7 +815,7 @@ export function ProductsTab() {
                         {formImagePreviews.map((preview, i) => (
                           <div key={i} className="relative w-16 h-16 shrink-0 rounded-md overflow-hidden border border-border">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+                            <img src={preview} alt="Preview" className="w-full h-full object-contain" />
                             <button
                               onClick={() => {
                                 const newFiles = formImageFiles.filter((_, idx) => idx !== i)
@@ -1285,7 +1308,7 @@ export function ProductsTab() {
                           <img
                             src={imgUrl}
                             alt={`Image ${idx + 1}`}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-contain"
                             loading="lazy"
                           />
                           <div className={`absolute inset-0 flex items-center justify-center transition-colors ${
