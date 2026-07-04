@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { motion, AnimatePresence, useSpring, useMotionValue, useTransform, Variants } from 'framer-motion'
@@ -38,6 +38,7 @@ import {
   Download,
   RefreshCw,
   Wand2,
+  Menu,
 } from 'lucide-react'
 import { useAppStore, formatPrice } from '@/lib/store'
 import { Button } from '@/components/ui/button'
@@ -423,6 +424,46 @@ export default function PublicProductsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [copySuccess, setCopySuccess] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'kidenzo' | 'neolife'>('kidenzo')
+
+  // ── Scroll-based UI liberation ──
+  const [isScrolled, setIsScrolled] = useState(false)
+  const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false)
+  const lastScrollY = useRef(0)
+
+  useEffect(() => {
+    // Determine the scroll container
+    // When embedded in DashboardLayout, it's the element with id="main-scroll-container"
+    // Otherwise fallback to window (for example in standalone testing)
+    const scrollContainer = document.getElementById('main-scroll-container') || window
+
+    const handleScroll = (e: Event) => {
+      // Get the scroll position depending on the container type
+      const currentScrollY =
+        scrollContainer === window
+          ? window.scrollY
+          : (e.target as HTMLElement).scrollTop
+
+      if (currentScrollY > 60) {
+        setIsScrolled(true)
+      } else {
+        setIsScrolled(false)
+        setIsCategoryMenuOpen(false)
+      }
+      lastScrollY.current = currentScrollY
+    }
+
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true })
+    return () => scrollContainer.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  // Close category dropdown when clicking outside
+  useEffect(() => {
+    if (!isCategoryMenuOpen) return
+    const handleClickOutside = () => setIsCategoryMenuOpen(false)
+    document.addEventListener('click', handleClickOutside, { once: true })
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [isCategoryMenuOpen])
 
   // Product detail sheet state
   const [detailProduct, setDetailProduct] = useState<any>(null)
@@ -455,7 +496,7 @@ export default function PublicProductsPage() {
   // Marketing share modal state
   const [shareModalOpen, setShareModalOpen] = useState(false)
   const [shareModalProduct, setShareModalProduct] = useState<{
-    name: string; basePrice: number; imageUrl?: string; description?: string; category?: string;
+    name: string; basePrice: number; imageUrl?: string; videoUrl?: string; description?: string; category?: string;
   } | null>(null)
   const [shareModalLink, setShareModalLink] = useState('')
   const [shareModalCommission, setShareModalCommission] = useState(0)
@@ -543,7 +584,7 @@ export default function PublicProductsPage() {
 
   // Filter products
   const filteredProducts = useMemo(() => {
-    let filtered = publicProducts.filter(p => p.status === 'active')
+    let filtered = publicProducts.filter(p => p.status === 'active' && ((p as any).brand || 'kidenzo') === activeTab)
 
     if (selectedCategory !== 'all') {
       filtered = filtered.filter(p => p.category === selectedCategory)
@@ -558,7 +599,7 @@ export default function PublicProductsPage() {
     }
 
     return filtered
-  }, [publicProducts, selectedCategory, searchQuery])
+  }, [publicProducts, selectedCategory, searchQuery, activeTab])
 
   // Handle "Recommander & Gagner" click → toggle inline slider
   const handleRecommendClick = (product: typeof publicProducts[0]) => {
@@ -611,6 +652,7 @@ export default function PublicProductsPage() {
             name: product.name,
             basePrice: product.basePrice,
             imageUrl: product.images && product.images.length > 0 ? product.images[0].storageUrl : undefined,
+            videoUrl: product.videoUrl || undefined,
             description: product.description,
             category: product.category,
           })
@@ -672,6 +714,7 @@ export default function PublicProductsPage() {
           name: product.name,
           basePrice: product.basePrice,
           imageUrl: product.images && product.images.length > 0 ? product.images[0].storageUrl : undefined,
+          videoUrl: product.videoUrl || undefined,
           description: product.description,
           category: product.category,
         })
@@ -767,75 +810,212 @@ export default function PublicProductsPage() {
       {/* ── Main Page Content ── */}
       <div style={{ display: detailProduct && detailProduct.miniSite ? 'none' : 'block' }} className="w-full">
 
-      {/* ── Search & Filter (Sticky) ── */}
-      <section className="sticky top-0 z-40 w-full bg-[#0a0118]/90 backdrop-blur-xl border-b border-white/5 shadow-md pt-4 pb-4 px-4 mb-4">
-        <div className="max-w-6xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3"
-          >
-            <div className="relative flex-1">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-              <Input
-                placeholder="Rechercher un produit..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/20 focus-visible:border-orange-400/50 h-11 rounded-xl"
-              />
-            </div>
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-              {CATEGORIES.map((cat) => (
-                <button
-                  key={cat.value}
-                  onClick={() => setSelectedCategory(cat.value)}
-                  className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-medium transition-all ${
-                    selectedCategory === cat.value
-                      ? 'bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-lg shadow-orange-500/20'
-                      : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70 border border-white/10'
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        </div>
-      </section>
+      {/* ═══════════════════════════════════════════════════ */}
+      {/* ── UNIFIED STICKY HEADER (search + tabs)        ── */}
+      {/* ═══════════════════════════════════════════════════ */}
+      <div className="sticky top-0 z-40 w-full">
 
-      {/* ── Hero Section ── */}
-      <section className="relative z-10 pb-6 w-full">
+        {/* ── Row 1: Search bar + burger on scroll ── */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="text-center space-y-5"
+          className="w-full bg-[#0a0118]/92 backdrop-blur-xl border-b border-white/5 px-4 overflow-visible"
+          animate={{
+            paddingTop: isScrolled ? 8 : 16,
+            paddingBottom: isScrolled ? 8 : 16,
+          }}
+          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
         >
-          <div className="grid grid-cols-4 gap-2 w-full max-w-md mx-auto px-2">
-            {[
-              { label: 'Voir', icon: Eye, bg: 'bg-blue-500/10', border: 'border-blue-500/20', iconColor: 'text-blue-400' },
-              { label: 'Acheter', icon: ShoppingCart, bg: 'bg-orange-500/10', border: 'border-orange-500/20', iconColor: 'text-orange-400' },
-              { label: 'Partager', icon: Share2, bg: 'bg-pink-500/10', border: 'border-pink-500/20', iconColor: 'text-pink-400' },
-              { label: 'Gagner', icon: Coins, bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', iconColor: 'text-emerald-400' },
-            ].map((action, i) => (
-              <motion.div
-                key={action.label}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.1 + i * 0.1, type: "spring", stiffness: 200, damping: 15 }}
-                className={`flex flex-col items-center justify-center gap-1.5 py-3 px-1 rounded-2xl ${action.bg} border ${action.border} backdrop-blur-md shadow-sm`}
-              >
-                <action.icon className={`w-5 h-5 sm:w-6 sm:h-6 ${action.iconColor}`} strokeWidth={2} />
-                <span className="text-[11px] sm:text-sm font-bold text-white tracking-wide">{action.label}</span>
-              </motion.div>
-            ))}
+          <div className="max-w-6xl mx-auto">
+            {/* Search row */}
+            <div className="flex items-center gap-2">
+              {/* Burger — slides in from left on scroll */}
+              <AnimatePresence>
+                {isScrolled && (
+                  <motion.div
+                    key="burger"
+                    initial={{ opacity: 0, width: 0, marginRight: 0 }}
+                    animate={{ opacity: 1, width: 40, marginRight: 0 }}
+                    exit={{ opacity: 0, width: 0, marginRight: 0 }}
+                    transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                    className="relative shrink-0 overflow-visible"
+                    style={{ minWidth: isScrolled ? 40 : 0 }}
+                  >
+                    <motion.button
+                      onClick={(e) => { e.stopPropagation(); setIsCategoryMenuOpen(prev => !prev) }}
+                      whileTap={{ scale: 0.9 }}
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-colors ${
+                        isCategoryMenuOpen
+                          ? 'bg-orange-500/20 border-orange-500/40 text-orange-400'
+                          : selectedCategory !== 'all'
+                          ? 'bg-orange-500/10 border-orange-500/30 text-orange-400'
+                          : 'bg-white/5 border-white/10 text-white/50'
+                      }`}
+                    >
+                      <motion.div
+                        animate={{ rotate: isCategoryMenuOpen ? 45 : 0 }}
+                        transition={{ duration: 0.25 }}
+                      >
+                        <Menu className="w-4 h-4" />
+                      </motion.div>
+                      {selectedCategory !== 'all' && !isCategoryMenuOpen && (
+                        <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-orange-500 border border-[#0a0118]" />
+                      )}
+                    </motion.button>
+
+                    {/* Category dropdown */}
+                    <AnimatePresence>
+                      {isCategoryMenuOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -8, scale: 0.96 }}
+                          transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="absolute top-12 left-0 z-[60] w-56 bg-[#130828]/98 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden py-1.5"
+                        >
+                          {CATEGORIES.map((cat, i) => (
+                            <motion.button
+                              key={cat.value}
+                              initial={{ opacity: 0, x: -8 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: i * 0.025 }}
+                              onClick={() => { setSelectedCategory(cat.value); setIsCategoryMenuOpen(false) }}
+                              className={`w-full text-left px-4 py-2.5 text-xs font-medium flex items-center justify-between transition-colors ${
+                                selectedCategory === cat.value
+                                  ? 'text-orange-400 bg-orange-500/10'
+                                  : 'text-white/60 hover:text-white hover:bg-white/5'
+                              }`}
+                            >
+                              {cat.label}
+                              {selectedCategory === cat.value && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />
+                              )}
+                            </motion.button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Search input */}
+              <div className="relative flex-1">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
+                <motion.div
+                  animate={{ height: isScrolled ? 38 : 44 }}
+                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <Input
+                    placeholder="Rechercher un produit..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 h-full bg-white/5 border-white/10 text-white placeholder:text-white/20 focus-visible:border-orange-400/50 rounded-xl"
+                  />
+                </motion.div>
+              </div>
+            </div>
+
+            {/* Category pills — collapse on scroll */}
+            <motion.div
+              animate={{
+                height: isScrolled ? 0 : 'auto',
+                opacity: isScrolled ? 0 : 1,
+                marginTop: isScrolled ? 0 : 10,
+              }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
+                {CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.value}
+                    onClick={() => setSelectedCategory(cat.value)}
+                    className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-medium transition-all ${
+                      selectedCategory === cat.value
+                        ? 'bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-lg shadow-orange-500/20'
+                        : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70 border border-white/10'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
           </div>
         </motion.div>
-      </section>
+
+        {/* ── Row 2: Kidenzo / Neolife tabs (always visible, compresses on scroll) ── */}
+        <motion.div
+          className="w-full bg-[#0a0118]/88 backdrop-blur-xl border-b border-white/5 shadow-lg shadow-black/10"
+          animate={{
+            paddingTop: isScrolled ? 5 : 14,
+            paddingBottom: isScrolled ? 5 : 14,
+            paddingLeft: 12,
+            paddingRight: 12,
+          }}
+          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <div className="flex max-w-md mx-auto p-1 bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+            {/* Kidenzo */}
+            <button
+              onClick={() => setActiveTab('kidenzo')}
+              className="relative flex-1 flex items-center justify-center gap-2 rounded-xl overflow-hidden transition-colors"
+              style={{ minHeight: isScrolled ? 34 : 46 }}
+            >
+              <AnimatePresence initial={false}>
+                {activeTab === 'kidenzo' && (
+                  <motion.span
+                    layoutId="tabActiveBg"
+                    className="absolute inset-0 bg-gradient-to-r from-orange-500 to-pink-500 shadow-lg shadow-orange-500/20"
+                    style={{ borderRadius: 10 }}
+                    transition={{ type: 'spring', stiffness: 380, damping: 36 }}
+                  />
+                )}
+              </AnimatePresence>
+              <span className="relative z-10 flex items-center gap-1.5">
+                <Package className={`transition-all duration-300 ${isScrolled ? 'w-3.5 h-3.5' : 'w-4.5 h-4.5'} ${activeTab === 'kidenzo' ? 'text-white' : 'text-orange-400'}`} />
+                <motion.span
+                  animate={{ fontSize: isScrolled ? '11px' : '13px' }}
+                  transition={{ duration: 0.3 }}
+                  className={`font-bold ${activeTab === 'kidenzo' ? 'text-white' : 'text-white/50'}`}
+                >
+                  {isScrolled ? 'Kidenzo' : 'Produits Kidenzo'}
+                </motion.span>
+              </span>
+            </button>
+
+            {/* Neolife */}
+            <button
+              onClick={() => setActiveTab('neolife')}
+              className="relative flex-1 flex items-center justify-center gap-2 rounded-xl overflow-hidden transition-colors"
+              style={{ minHeight: isScrolled ? 34 : 46 }}
+            >
+              <AnimatePresence initial={false}>
+                {activeTab === 'neolife' && (
+                  <motion.span
+                    layoutId="tabActiveBg"
+                    className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-500 shadow-lg shadow-emerald-500/20"
+                    style={{ borderRadius: 10 }}
+                    transition={{ type: 'spring', stiffness: 380, damping: 36 }}
+                  />
+                )}
+              </AnimatePresence>
+              <span className="absolute inset-0 z-10 flex items-center justify-center p-1">
+                <img 
+                  src="/logo_Neolife.jpg" 
+                  alt="Neolife" 
+                  className="w-full h-full object-contain mix-blend-multiply"
+                />
+              </span>
+            </button>
+          </div>
+        </motion.div>
+
+      </div>{/* end sticky wrapper */}
+
 
       {/* ── Products Grid ── */}
-      <main className="relative z-10 flex-1 px-4 pb-8 max-w-6xl mx-auto w-full">
+      <main className="relative z-10 flex-1 px-4 pt-4 pb-8 max-w-6xl mx-auto w-full">
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[1, 2, 3, 4, 5, 6].map((i) => (

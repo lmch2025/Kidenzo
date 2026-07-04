@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { Share2, Copy, Check, MessageSquare, Users, Download, Loader2, Wand2, RefreshCw, Image as ImageIcon, Sparkles } from 'lucide-react'
+import QRCode from 'react-qr-code'
 import { formatPrice } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -31,7 +32,7 @@ export default function MarketingShareModal({
 }: {
   open: boolean
   onClose: () => void
-  product: { name: string; basePrice: number; imageUrl?: string; description?: string; category?: string } | null
+  product: { name: string; basePrice: number; imageUrl?: string; videoUrl?: string; description?: string; category?: string } | null
   commissionPct: number
   shareLink: string
 }) {
@@ -92,23 +93,23 @@ export default function MarketingShareModal({
 
   const marketingMessages = useMemo(() => {
     if (!product) return []
-    const imageNote = product.imageUrl ? " 📸 Voir l'image dans le lien" : ''
+    const mediaNote = product.videoUrl ? " 🎥 Vidéo jointe" : product.imageUrl ? " 📸 Image jointe" : ''
     return [
       {
         label: '🔥 Offre flash',
-        message: `🔥 OFFRE EXCLUSIVE ! ${product.name} à seulement ${formatPrice(finalPrice)} ! Commandez maintenant, stock limité !${imageNote} 👉 ${shareLink}`,
+        message: `🔥 OFFRE EXCLUSIVE ! ${product.name} à seulement ${formatPrice(finalPrice)} ! Commandez maintenant, stock limité !${mediaNote} 👉 ${shareLink}`,
       },
       {
         label: '💯 Recommandation',
-        message: `💯 J'ai trouvé ce produit incroyable : ${product.name} à ${formatPrice(finalPrice)}. Qualité garantie !${imageNote} 👉 ${shareLink}`,
+        message: `💯 J'ai trouvé ce produit incroyable : ${product.name} à ${formatPrice(finalPrice)}. Qualité garantie !${mediaNote} 👉 ${shareLink}`,
       },
       {
         label: '⏰ Urgence',
-        message: `⏰ Dernière chance ! ${product.name} à ${formatPrice(finalPrice)}. Ne ratez pas cette offre !${imageNote} 👉 ${shareLink}`,
+        message: `⏰ Dernière chance ! ${product.name} à ${formatPrice(finalPrice)}. Ne ratez pas cette offre !${mediaNote} 👉 ${shareLink}`,
       },
       {
         label: '🎁 Cadeau',
-        message: `🎁 Offrez-vous ${product.name} ! Seulement ${formatPrice(finalPrice)}. Livraison rapide !${imageNote} 👉 ${shareLink}`,
+        message: `🎁 Offrez-vous ${product.name} ! Seulement ${formatPrice(finalPrice)}. Livraison rapide !${mediaNote} 👉 ${shareLink}`,
       },
     ]
   }, [product, finalPrice, shareLink])
@@ -141,32 +142,39 @@ export default function MarketingShareModal({
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Découvrez ${product.name} à ${formatPrice(finalPrice)} !`)}&url=${encodeURIComponent(shareLink)}`, '_blank')
   }
 
-  // Native share with image file attached
-  const shareWithImage = async () => {
-    if (!product?.imageUrl) return
+  // Native share with media file attached
+  const shareMedia = async () => {
+    if (!product?.imageUrl && !product?.videoUrl) return
     setImageLoading(true)
 
     let blob: Blob | null = null
-    let fileName = 'image.png'
+    let fileName = 'media.png'
+    const isVideo = !!product.videoUrl
 
     try {
-      // Fetch image through proxy to avoid CORS issues
-      const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(product.imageUrl)}`
+      // Fetch media through proxy to avoid CORS issues
+      const targetUrl = isVideo ? product.videoUrl : product.imageUrl
+      const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(targetUrl!)}`
       const res = await fetch(proxyUrl)
-      if (!res.ok) throw new Error('Failed to fetch image')
+      if (!res.ok) throw new Error('Failed to fetch media')
 
       blob = await res.blob()
       // Determine file extension from content type
-      const contentType = res.headers.get('Content-Type') || 'image/png'
-      const ext = contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : contentType.includes('webp') ? 'webp' : 'png'
+      const contentType = res.headers.get('Content-Type') || (isVideo ? 'video/mp4' : 'image/png')
+      let ext = 'png'
+      if (isVideo) {
+        ext = contentType.includes('webm') ? 'webm' : contentType.includes('ogg') ? 'ogg' : 'mp4'
+      } else {
+        ext = contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : contentType.includes('webp') ? 'webp' : 'png'
+      }
       fileName = `${product.name.replace(/[^a-zA-Z0-9]/g, '_')}.${ext}`
-      const imageFile = new File([blob], fileName, { type: contentType })
+      const mediaFile = new File([blob], fileName, { type: contentType })
 
       const shareData = {
         title: product.name,
         text: `Découvrez ${product.name} à ${formatPrice(finalPrice)} ! Commandez maintenant 👉`,
         url: shareLink,
-        files: [imageFile],
+        files: [mediaFile],
       }
 
       // Check if sharing files is supported
@@ -184,10 +192,10 @@ export default function MarketingShareModal({
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return // User cancelled
       
-      // Fallback: copy text and download image
+      // Fallback: copy text and download media
       try {
         if (blob) {
-          await copyToClipboard(`Découvrez ${product.name} à ${formatPrice(finalPrice)} ! 📸 Voir l'image jointe\n👉 ${shareLink}`, 'fallback-share')
+          await copyToClipboard(`Découvrez ${product.name} à ${formatPrice(finalPrice)} ! ${isVideo ? '🎥' : '📸'} Voir le fichier joint\n👉 ${shareLink}`, 'fallback-share')
           
           const url = URL.createObjectURL(blob)
           const a = document.createElement('a')
@@ -198,9 +206,9 @@ export default function MarketingShareModal({
           document.body.removeChild(a)
           URL.revokeObjectURL(url)
           
-          alert("L'image a été téléchargée et le texte a été copié ! Vous n'avez plus qu'à coller le texte là où vous partagez l'image.")
+          alert("Le fichier a été téléchargé et le texte a été copié ! Vous n'avez plus qu'à coller le texte là où vous partagez.")
         } else {
-          alert("Impossible de charger l'image pour le moment.")
+          alert("Impossible de charger le média pour le moment.")
         }
       } catch (fallbackErr) {
         console.error('Fallback sharing failed:', fallbackErr)
@@ -316,8 +324,8 @@ export default function MarketingShareModal({
             </div>
           </motion.div>
 
-          {/* Product Image Preview */}
-          {product.imageUrl && (
+          {/* Product Image/Video Preview */}
+          {(product.imageUrl || product.videoUrl) && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -325,31 +333,40 @@ export default function MarketingShareModal({
             >
               <div className="flex items-center gap-4 p-3 bg-gradient-to-r from-orange-500/5 via-pink-500/5 to-purple-500/5">
                 <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-white/10 relative">
-                  <Image
-                    src={product.imageUrl}
-                    alt={product.name}
-                    fill
-                    sizes="64px"
-                    className="object-contain"
-                  />
+                  {product.videoUrl ? (
+                    <video
+                      src={product.videoUrl}
+                      className="w-full h-full object-cover bg-black"
+                      muted
+                      playsInline
+                    />
+                  ) : (
+                    <Image
+                      src={product.imageUrl!}
+                      alt={product.name}
+                      fill
+                      sizes="64px"
+                      className="object-contain"
+                    />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-white truncate">{product.name}</p>
                   <p className="text-xs text-white/40 mt-0.5">Prix client : {formatPrice(finalPrice)}</p>
                   <div className="flex items-center gap-1.5 mt-1">
                     <ImageIcon className="w-3 h-3 text-emerald-400" />
-                    <span className="text-[10px] text-emerald-400/70">Image jointe au partage</span>
+                    <span className="text-[10px] text-emerald-400/70">{product.videoUrl ? 'Vidéo' : 'Image'} jointe au partage</span>
                   </div>
                 </div>
               </div>
             </motion.div>
           )}
 
-          {/* Share with image button (native Web Share API) */}
-          {product.imageUrl && nativeShareSupported && (
+          {/* Share with media button (native Web Share API) */}
+          {(product.imageUrl || product.videoUrl) && nativeShareSupported && (
             <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
               <Button
-                onClick={shareWithImage}
+                onClick={shareMedia}
                 disabled={imageLoading}
                 className="w-full h-12 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white text-sm font-semibold shadow-lg shadow-emerald-500/20 relative overflow-hidden"
               >
@@ -365,7 +382,7 @@ export default function MarketingShareModal({
                   ) : (
                     <Download className="w-4 h-4" />
                   )}
-                  {imageLoading ? "Chargement de l'image..." : "Partager avec l'image"}
+                  {imageLoading ? "Chargement en cours..." : `Partager avec ${product.videoUrl ? 'la vidéo' : "l'image"}`}
                 </span>
               </Button>
             </motion.div>
@@ -465,19 +482,17 @@ export default function MarketingShareModal({
             </div>
           </div>
 
-          {/* QR Code placeholder */}
+          {/* QR Code */}
           <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] text-center space-y-2">
-            <div className="w-24 h-24 mx-auto rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
-              <div className="grid grid-cols-5 gap-0.5 w-16 h-16">
-                {Array.from({ length: 25 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={`rounded-sm ${seededRandom(i + 42) > 0.4 ? 'bg-white/20' : 'bg-transparent'}`}
-                  />
-                ))}
-              </div>
+            <div className="p-2 w-32 h-32 mx-auto rounded-xl bg-white flex items-center justify-center">
+              <QRCode
+                value={shareLink}
+                size={112}
+                style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                viewBox={`0 0 256 256`}
+              />
             </div>
-            <p className="text-[10px] text-white/30">QR Code de votre lien</p>
+            <p className="text-[10px] text-white/30">Faites scanner ce QR Code pour recommander en direct</p>
             <Button
               size="sm"
               variant="outline"

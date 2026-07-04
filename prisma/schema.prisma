@@ -14,7 +14,7 @@ model User {
   pinHash      String
   name         String?
   avatar       String?
-  role         String   @default("recommender") // owner, ambassador, recommender
+  role         String   @default("recommender") // owner, ambassador, recommender, admin_neolife
   ambassadorId String?
   ambassador   User?    @relation("AmbassadorRecommenders", fields: [ambassadorId], references: [id])
   recommenders User[]   @relation("AmbassadorRecommenders")
@@ -44,6 +44,8 @@ model User {
   clickEvents         ClickEvent[]
   suspiciousActivities SuspiciousActivity[]
   withdrawalRequests   WithdrawalRequest[]
+  customerWallet       CustomerWallet?  @relation("CustomerWallet")
+  pushSubscriptions    PushSubscription[]
 }
 
 model Product {
@@ -56,18 +58,21 @@ model Product {
   category    String   @default("general")
   stock       Int      @default(0)
   status      String   @default("active") // active, inactive
+  brand       String   @default("kidenzo") // kidenzo, neolife
   maxCommission Int    @default(40)
   commissionPerClick Float @default(0)
   weight      String   @default("") // e.g. "500g", "1.2kg"
   dimensions  String   @default("") // e.g. "30x20x10cm"
   sourceUrl   String?  // Original Alibaba/AliExpress URL
   youtubeUrl  String?  // Short video for the product
+  videoUrl    String?  // Main product video URL (MP4 etc)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   images     ProductImage[]
   miniSite   MiniSite?
   reviews    ProductReview[]
+  savingsGoals    SavingsGoal[]
 
   @@index([ownerId])
   @@index([status])
@@ -113,8 +118,8 @@ model RecommenderProduct {
 
 model Order {
   id                  String   @id @default(cuid())
-  miniSiteId          String
-  miniSite            MiniSite @relation(fields: [miniSiteId], references: [id])
+  miniSiteId          String?
+  miniSite            MiniSite? @relation(fields: [miniSiteId], references: [id])
   recommenderId       String?
   recommender         User?    @relation(fields: [recommenderId], references: [id])
   customerName        String
@@ -130,6 +135,7 @@ model Order {
 
   commissionPayments CommissionPayment[]
   review              ProductReview?
+  installmentPlan     InstallmentPlan?
 
   @@index([miniSiteId])
   @@index([recommenderId])
@@ -365,4 +371,127 @@ model ProductReview {
 
   @@index([productId])
   @@index([createdAt])
+}
+
+// ─── Customer Wallet System ──────────────────────────────────────
+
+model CustomerWallet {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation("CustomerWallet", fields: [userId], references: [id])
+  balance       Float    @default(0)
+  totalSaved    Float    @default(0)
+  totalSpent    Float    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  installmentPlans  InstallmentPlan[]
+  savingsGoals      SavingsGoal[]
+  transactions      WalletTransaction[]
+}
+
+model InstallmentPlan {
+  id                String   @id @default(cuid())
+  walletId          String
+  wallet            CustomerWallet @relation(fields: [walletId], references: [id])
+  orderId           String   @unique
+  order             Order    @relation(fields: [orderId], references: [id])
+  productName       String
+  productImage      String?
+  totalAmount       Float
+  downPayment       Float
+  remainingAmount   Float
+  installmentAmount Float
+  frequency         String   @default("daily")
+  totalInstallments Int
+  paidInstallments  Int      @default(0)
+  nextDueDate       DateTime?
+  status            String   @default("active")
+  completedAt       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  payments          InstallmentPayment[]
+
+  @@index([walletId])
+  @@index([status])
+  @@index([nextDueDate])
+}
+
+model InstallmentPayment {
+  id              String   @id @default(cuid())
+  planId          String
+  plan            InstallmentPlan @relation(fields: [planId], references: [id])
+  amount          Float
+  paymentMethod   String   @default("mobile_money")
+  reference       String?
+  status          String   @default("confirmed")
+  paidAt          DateTime @default(now())
+
+  @@index([planId])
+}
+
+model SavingsGoal {
+  id              String   @id @default(cuid())
+  walletId        String
+  wallet          CustomerWallet @relation(fields: [walletId], references: [id])
+  productId       String?
+  product         Product?  @relation(fields: [productId], references: [id])
+  productName     String
+  productImage    String?
+  targetAmount    Float
+  currentAmount   Float    @default(0)
+  dailyTarget     Float?
+  targetDate      DateTime?
+  status          String   @default("active")
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  deposits        SavingsDeposit[]
+
+  @@index([walletId])
+  @@index([productId])
+  @@index([status])
+}
+
+model SavingsDeposit {
+  id              String   @id @default(cuid())
+  goalId          String
+  goal            SavingsGoal @relation(fields: [goalId], references: [id])
+  amount          Float
+  paymentMethod   String   @default("mobile_money")
+  reference       String?
+  status          String   @default("confirmed")
+  depositedAt     DateTime @default(now())
+
+  @@index([goalId])
+}
+
+model WalletTransaction {
+  id              String   @id @default(cuid())
+  walletId        String
+  wallet          CustomerWallet @relation(fields: [walletId], references: [id])
+  type            String
+  amount          Float
+  description     String
+  reference       String?
+  balanceBefore   Float
+  balanceAfter    Float
+  createdAt       DateTime @default(now())
+
+  @@index([walletId, createdAt])
+  @@index([type])
+}
+
+model PushSubscription {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  endpoint        String   @unique
+  p256dh          String
+  auth            String
+  createdAt       DateTime @default(now())
+
+  @@index([userId])
 }

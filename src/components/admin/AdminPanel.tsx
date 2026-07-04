@@ -13,6 +13,7 @@ import {
   MousePointerClick,
   Settings,
   Wallet,
+  CreditCard,
   ChevronRight,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
@@ -26,8 +27,9 @@ const AdminGamification = dynamic(() => import('./AdminGamification').then(m => 
 const AdminPPC = dynamic(() => import('./AdminPPC').then(m => ({ default: m.AdminPPC })), { ssr: false })
 const AdminSystem = dynamic(() => import('./AdminSystem').then(m => ({ default: m.AdminSystem })), { ssr: false })
 const AdminWithdrawals = dynamic(() => import('./AdminWithdrawals').then(m => ({ default: m.AdminWithdrawals })), { ssr: false })
+const AdminWallet = dynamic(() => import('./AdminWallet').then(m => ({ default: m.AdminWallet })), { ssr: false })
 
-export type AdminSection = 'dashboard' | 'products' | 'orders' | 'users' | 'mini-sites' | 'gamification' | 'ppc' | 'withdrawals' | 'system'
+export type AdminSection = 'dashboard' | 'products' | 'orders' | 'users' | 'mini-sites' | 'gamification' | 'ppc' | 'wallet' | 'withdrawals' | 'system'
 
 interface AdminNavItem {
   id: AdminSection
@@ -44,12 +46,25 @@ const ADMIN_NAV: AdminNavItem[] = [
   { id: 'mini-sites', label: 'Mini-Sites', icon: Globe, description: 'Sites produits' },
   { id: 'gamification', label: 'Gamification', icon: Trophy, description: 'Badges & Récompenses' },
   { id: 'ppc', label: 'PPC & Anti-Fraude', icon: MousePointerClick, description: 'Clics rémunérés' },
+  { id: 'wallet', label: 'Wallet Client', icon: CreditCard, description: 'Crédits & Épargnes' },
   { id: 'withdrawals', label: 'Retraits', icon: Wallet, description: 'Demandes de retraits' },
   { id: 'system', label: 'Système', icon: Settings, description: 'Configuration' },
 ]
 
+import { useAppStore } from '@/lib/store'
+
 export function AdminPanel() {
-  const [activeSection, setActiveSection] = useState<AdminSection>('dashboard')
+  const { user } = useAppStore()
+  const isAdminNeolife = user?.role === 'admin_neolife'
+  
+  const [activeSection, setActiveSection] = useState<AdminSection>(isAdminNeolife ? 'products' : 'dashboard')
+
+  const filteredNav = ADMIN_NAV.filter(item => {
+    if (isAdminNeolife) {
+      return item.id === 'products' || item.id === 'orders'
+    }
+    return true
+  })
 
   const renderSection = () => {
     switch (activeSection) {
@@ -60,9 +75,10 @@ export function AdminPanel() {
       case 'mini-sites': return <AdminMiniSites />
       case 'gamification': return <AdminGamification />
       case 'ppc': return <AdminPPC />
+      case 'wallet': return <AdminWallet />
       case 'withdrawals': return <AdminWithdrawals />
       case 'system': return <AdminSystem />
-      default: return <AdminDashboard />
+      default: return isAdminNeolife ? <ProductsTab /> : <AdminDashboard />
     }
   }
 
@@ -85,7 +101,7 @@ export function AdminPanel() {
 
       {/* Mobile Horizontal Scroll Tabs */}
       <div className="flex lg:hidden gap-2 overflow-x-auto pb-2 scrollbar-thin">
-        {ADMIN_NAV.map((item) => {
+        {filteredNav.map((item) => {
           const isActive = activeSection === item.id
           const Icon = item.icon
           return (
@@ -110,7 +126,7 @@ export function AdminPanel() {
       <div className="flex gap-6">
         {/* Desktop Sidebar */}
         <nav className="hidden lg:flex flex-col w-52 shrink-0 space-y-1">
-          {ADMIN_NAV.map((item) => {
+          {filteredNav.map((item) => {
             const isActive = activeSection === item.id
             const Icon = item.icon
             return (

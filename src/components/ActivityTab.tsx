@@ -35,7 +35,7 @@ export function ActivityTab() {
       { id: 'clicks', label: 'Clics', icon: MousePointerClick, color: 'text-emerald-400' },
       { id: 'recommender', label: 'Réseau', icon: Share2, color: 'text-purple-400' }
     )
-  } else if (role === 'ambassador' || role === 'super_admin' || role === 'admin' || role === 'owner') {
+  } else if (role === 'ambassador' || (role as string) === 'super_admin' || (role as string) === 'admin' || (role as string) === 'owner') {
     availableTabs.push(
       { id: 'ambassador', label: 'Réseau Pro', icon: Crown, color: 'text-yellow-400' }
     )

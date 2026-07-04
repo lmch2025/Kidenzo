@@ -412,7 +412,7 @@ async function handleGetDailyQuests(userId: string) {
     },
   })
 
-  const assignedQuests = []
+  const assignedQuests: any[] = []
 
   for (const quest of activeDailyQuests) {
     const userQuest = await db.userDailyQuest.create({

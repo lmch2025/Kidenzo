@@ -20,7 +20,7 @@ export default async function ReviewPage(props: { params: Promise<{ orderId: str
     }
   })
 
-  if (!order) {
+  if (!order || !order.miniSite) {
     notFound()
   }
 

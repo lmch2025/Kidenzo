@@ -30,6 +30,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Commande introuvable.' }, { status: 404 })
     }
 
+    if (!order.miniSite) {
+      return NextResponse.json({ error: 'Impossible de noter un produit personnalisé.' }, { status: 400 })
+    }
+
     // Check if review already exists
     const existingReview = await db.productReview.findUnique({
       where: { orderId },

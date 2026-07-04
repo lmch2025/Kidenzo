@@ -310,7 +310,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // If cancelled, restore stock
-    if (status === 'cancelled' && existing.status !== 'cancelled') {
+    if (status === 'cancelled' && existing.status !== 'cancelled' && existing.miniSite) {
       await db.product.update({
         where: { id: existing.miniSite.product.id },
         data: { stock: { increment: 1 } },

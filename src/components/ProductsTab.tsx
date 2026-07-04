@@ -221,6 +221,8 @@ export function ProductsTab() {
   const [importFormStock, setImportFormStock] = useState('10')
   const [importFormMaxCommission, setImportFormMaxCommission] = useState('40')
   const [importSelectedImages, setImportSelectedImages] = useState<Set<number>>(new Set())
+  const [importSelectedVideo, setImportSelectedVideo] = useState<number | null>(null)
+  const [manualVideoUrl, setManualVideoUrl] = useState('')
 
   const userId = user?.id
 
@@ -230,7 +232,13 @@ export function ProductsTab() {
     try {
       const headers: Record<string, string> = {}
       if (token) headers['Authorization'] = `Bearer ${token}`
-      const res = await fetch(`/api/products?ownerId=${userId}`, { headers })
+      const queryParams = new URLSearchParams()
+      if (user.role === 'admin_neolife') {
+        queryParams.set('brand', 'neolife')
+      } else {
+        queryParams.set('ownerId', userId)
+      }
+      const res = await fetch(`/api/products?${queryParams.toString()}`, { headers })
       if (res.ok) {
         const data = await res.json()
         setProducts(data.products || data || [])
@@ -275,6 +283,7 @@ export function ProductsTab() {
     setImportFormStock('10')
     setImportFormMaxCommission('40')
     setImportSelectedImages(new Set())
+    setImportSelectedVideo(null)
   }
 
   const handleCreateProduct = async () => {
@@ -348,6 +357,8 @@ export function ProductsTab() {
       setImportFormCategory(product.category || 'autre')
       // Select all images by default
       setImportSelectedImages(new Set(product.images.map((_, i) => i)))
+      // Select first video by default if available
+      setImportSelectedVideo(product.videos && product.videos.length > 0 ? 0 : null)
     } catch (error) {
       setImportError(error instanceof Error ? error.message : 'Erreur lors de l\'analyse du lien')
     } finally {
@@ -381,6 +392,7 @@ export function ProductsTab() {
           weight: importedData?.weight || '',
           dimensions: importedData?.dimensions || '',
           sourceUrl: importedData?.sourceUrl || importUrl,
+          videoUrl: (importedData && importedData.videos && importSelectedVideo !== null) ? importedData.videos[importSelectedVideo] : null,
           images: selectedImages,
         }),
       })
@@ -1349,6 +1361,79 @@ export function ProductsTab() {
                     </div>
                   </div>
                 )}
+
+                {/* Video Gallery */}
+                <div className="space-y-2 min-w-0 overflow-hidden mt-3">
+                  <Label className="text-xs flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Camera className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      Vidéo ({importSelectedVideo !== null ? '1' : '0'}/{importedData.videos?.length || 0})
+                    </span>
+                  </Label>
+                  
+                  {importedData.videos && importedData.videos.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-40 overflow-y-auto mb-2">
+                      {importedData.videos.map((vidUrl, idx) => (
+                        <motion.div
+                          key={`vid-${idx}`}
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: idx * 0.05 }}
+                          className={`relative group rounded-md overflow-hidden border-2 cursor-pointer transition-all duration-200 ${
+                            importSelectedVideo === idx
+                              ? 'border-emerald-500 shadow-sm shadow-emerald-500/20'
+                              : 'border-border/50 opacity-50 hover:opacity-80'
+                          }`}
+                          onClick={() => setImportSelectedVideo(importSelectedVideo === idx ? null : idx)}
+                        >
+                          <video
+                            src={vidUrl}
+                            className="w-full aspect-video object-cover bg-black"
+                            controls={false}
+                            muted
+                            playsInline
+                            autoPlay={false}
+                          />
+                          <div className={`absolute inset-0 flex items-center justify-center transition-colors ${
+                            importSelectedVideo === idx
+                              ? 'bg-emerald-500/20'
+                              : 'bg-background/40'
+                          }`}>
+                            <Checkbox
+                              checked={importSelectedVideo === idx}
+                              className="pointer-events-none"
+                            />
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 items-center">
+                    <Input
+                      placeholder="Coller un lien vidéo (MP4)..."
+                      value={manualVideoUrl}
+                      onChange={(e) => setManualVideoUrl(e.target.value)}
+                      className="h-8 text-xs bg-background/50"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs shrink-0"
+                      disabled={!manualVideoUrl.trim()}
+                      onClick={() => {
+                        if (manualVideoUrl.trim()) {
+                          const newVideos = [...(importedData.videos || []), manualVideoUrl.trim()]
+                          setImportedData({ ...importedData, videos: newVideos })
+                          setImportSelectedVideo(newVideos.length - 1)
+                          setManualVideoUrl('')
+                        }
+                      }}
+                    >
+                      Ajouter
+                    </Button>
+                  </div>
+                </div>
 
                 {/* Weight & Dimensions (read-only) */}
                 {(importedData.weight || importedData.dimensions) && (

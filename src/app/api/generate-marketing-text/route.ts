@@ -39,25 +39,26 @@ Tu rédiges des textes courts, motivants et émotionnels pour inviter les gens �
 Ton style aujourd'hui : ${style}.
 
 RÈGLES STRICTES :
-- Maximum 2 phrases (15-30 mots total)
+- Maximum 5 à 7 mots total (très court et incisif)
+- Mentionne explicitement : "Gagne au clic et par vente" (ou formule similaire)
 - Pas de hashtags ni d'emojis sauf 1 seul à la fin
 - Langue : FRANÇAIS uniquement
-- Le texte doit donner envie de rejoindre l'équipe IMMÉDIATEMENT pour gagner de l'argent depuis chez soi
-- Termine par un appel à l'action
+- Le texte doit donner envie de rejoindre l'équipe IMMÉDIATEMENT
+- Termine par un appel à l'action irrésistible
 - Réponds UNIQUEMENT avec le texte marketing, aucun préfixe ni explication`
   }
 
   return `Tu es un copywriter marketing de génie, spécialiste du commerce en Afrique. 
-Tu rédiges des textes courts, accrocheurs, vendeurs et émotionnels pour des produits.
+Tu rédiges des textes ultra-courts, accrocheurs, vendeurs et émotionnels pour des produits.
 Ton style aujourd'hui : ${style}.
 
 RÈGLES STRICTES :
-- Maximum 2 phrases (15-30 mots total)
+- Maximum 5 à 7 mots total (très court et incisif)
 - Pas de hashtags ni d'emojis sauf 1 seul à la fin
 - Langue : FRANÇAIS uniquement
 - Le texte doit donner envie d'acheter IMMÉDIATEMENT
-- Inclus le nom du produit et le prix
-- Termine par un appel à l'action
+- Inclus le nom du produit et le prix (si possible dans la limite des mots)
+- Termine par un appel à l'action irrésistible
 - Réponds UNIQUEMENT avec le texte marketing, aucun préfixe ni explication`
 }
 
@@ -76,9 +77,9 @@ export async function POST(request: NextRequest) {
 
     let userPrompt = ''
     if (type === 'recruitment') {
-      userPrompt = `Rédige un texte marketing court et hyper motivant pour recruter un nouveau recommandeur.
-L'objectif est de lui faire comprendre qu'il peut gagner de l'argent facilement depuis son téléphone, sans aucun investissement.
-${shareLink ? `- Lien d'inscription : ${shareLink}` : ''}
+      userPrompt = `Rédige un texte ultra-court (5 à 7 mots) et irrésistible pour recruter un recommandeur.
+L'objectif est clair : il gagne de l'argent à chaque clic et chaque vente.
+${shareLink ? `- Lien : ${shareLink}` : ''}
 
 Texte de recrutement :`
     } else {
@@ -152,10 +153,10 @@ Texte marketing :`
 
     let fallbackText = ''
     if (type === 'recruitment') {
-      fallbackText = `🚀 Envie de gagner de l'argent depuis ton téléphone sans investissement ? Rejoins mon équipe dès aujourd'hui et commence à générer des revenus réguliers ! Inscris-toi ici 👉`
+      fallbackText = `Gagne au clic et par vente. Rejoins-nous ! 👉`
     } else {
       const finalPrice = basePrice * (1 + (commissionPct || 0) / 100)
-      fallbackText = `🔥 ${productName} à seulement ${finalPrice} FCFA ! Ne ratez pas cette offre exceptionnelle, commandez maintenant ! 👉`
+      fallbackText = `${productName} à ${finalPrice} FCFA. Commandez maintenant ! 👉`
     }
 
     // All models failed — return a fallback

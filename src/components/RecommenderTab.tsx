@@ -25,6 +25,7 @@ import {
   Loader2,
   RefreshCw,
   Wand2,
+  Camera,
 } from 'lucide-react'
 import { useAppStore, formatPrice } from '@/lib/store'
 import { Button } from '@/components/ui/button'
@@ -346,6 +347,7 @@ function MarketingShareModal({
   basePrice,
   commissionPct,
   imageUrl,
+  videoUrl,
   shareLink,
   description,
   category,
@@ -356,6 +358,7 @@ function MarketingShareModal({
   basePrice: number
   commissionPct: number
   imageUrl?: string
+  videoUrl?: string
   shareLink: string
   description?: string
   category?: string
@@ -416,26 +419,26 @@ function MarketingShareModal({
   }, [open, productName, generateAiText])
 
   const marketingMessages = useMemo(() => {
-    const imageNote = imageUrl ? ' 📸 Voir l\'image dans le lien' : ''
+    const mediaNote = videoUrl ? " 🎥 Vidéo jointe" : imageUrl ? " 📸 Image jointe" : ''
     return [
       {
         label: '🔥 Offre flash',
-        message: `🔥 OFFRE EXCLUSIVE ! ${productName} à seulement ${formatPrice(finalPrice)} ! Commandez maintenant, stock limité !${imageNote} 👉 ${shareLink}`,
+        message: `🔥 OFFRE EXCLUSIVE ! ${productName} à seulement ${formatPrice(finalPrice)} ! Commandez maintenant, stock limité !${mediaNote} 👉 ${shareLink}`,
       },
       {
         label: '💯 Recommandation',
-        message: `💯 J'ai trouvé ce produit incroyable : ${productName} à ${formatPrice(finalPrice)}. Qualité garantie !${imageNote} 👉 ${shareLink}`,
+        message: `💯 J'ai trouvé ce produit incroyable : ${productName} à ${formatPrice(finalPrice)}. Qualité garantie !${mediaNote} 👉 ${shareLink}`,
       },
       {
         label: '⏰ Urgence',
-        message: `⏰ Dernière chance ! ${productName} à ${formatPrice(finalPrice)}. Ne ratez pas cette offre !${imageNote} 👉 ${shareLink}`,
+        message: `⏰ Dernière chance ! ${productName} à ${formatPrice(finalPrice)}. Ne ratez pas cette offre !${mediaNote} 👉 ${shareLink}`,
       },
       {
         label: '🎁 Cadeau',
-        message: `🎁 Offrez-vous ${productName} ! Seulement ${formatPrice(finalPrice)}. Livraison rapide !${imageNote} 👉 ${shareLink}`,
+        message: `🎁 Offrez-vous ${productName} ! Seulement ${formatPrice(finalPrice)}. Livraison rapide !${mediaNote} 👉 ${shareLink}`,
       },
     ]
-  }, [productName, finalPrice, shareLink, imageUrl])
+  }, [productName, finalPrice, shareLink, imageUrl, videoUrl])
 
   const copyToClipboard = async (text: string, id: string) => {
     try {
@@ -464,42 +467,49 @@ function MarketingShareModal({
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Découvrez ${productName} à ${formatPrice(finalPrice)} !`)}&url=${encodeURIComponent(shareLink)}`, '_blank')
   }
 
-  // Native share with image file attached
-  const shareWithImage = async () => {
-    if (!imageUrl) return
+  // Native share with media file attached
+  const shareWithMedia = async () => {
+    const targetUrl = videoUrl || imageUrl
+    if (!targetUrl) return
     setImageLoading(true)
+    const isVideo = !!videoUrl
     try {
-      // Fetch image through proxy to avoid CORS issues
-      const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(imageUrl)}`
+      // Fetch media through proxy to avoid CORS issues
+      const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(targetUrl)}`
       const res = await fetch(proxyUrl)
-      if (!res.ok) throw new Error('Failed to fetch image')
+      if (!res.ok) throw new Error('Failed to fetch media')
 
       const blob = await res.blob()
-      const contentType = res.headers.get('Content-Type') || 'image/png'
-      const ext = contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : contentType.includes('webp') ? 'webp' : 'png'
+      const contentType = res.headers.get('Content-Type') || (isVideo ? 'video/mp4' : 'image/png')
+      let ext = 'png'
+      if (isVideo) {
+        ext = contentType.includes('webm') ? 'webm' : contentType.includes('ogg') ? 'ogg' : 'mp4'
+      } else {
+        ext = contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : contentType.includes('webp') ? 'webp' : 'png'
+      }
       const fileName = `${productName.replace(/[^a-zA-Z0-9]/g, '_')}.${ext}`
-      const imageFile = new File([blob], fileName, { type: contentType })
+      const mediaFile = new File([blob], fileName, { type: contentType })
 
       const shareData = {
         title: productName,
         text: `Découvrez ${productName} à ${formatPrice(finalPrice)} ! Commandez maintenant 👉`,
         url: shareLink,
-        files: [imageFile],
+        files: [mediaFile],
       }
 
       // Check if sharing files is supported
       if (navigator.canShare && navigator.canShare(shareData)) {
         await navigator.share(shareData)
       } else {
-        // Fallback: share without image
+        // Fallback: share without media
         await navigator.share({
           title: productName,
-          text: `Découvrez ${productName} à ${formatPrice(finalPrice)} ! 📸 Voir l'image dans le lien`,
+          text: `Découvrez ${productName} à ${formatPrice(finalPrice)} ! ${isVideo ? '🎥' : '📸'} Voir le fichier joint`,
           url: shareLink,
         })
       }
     } catch (err) {
-      // User cancelled or share failed — fallback to simple share
+      // User cancelled or share failed
       if (err instanceof Error && err.name !== 'AbortError') {
         try {
           await navigator.share({
@@ -643,7 +653,12 @@ function MarketingShareModal({
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-white truncate">{productName}</p>
                 <p className="text-xs text-white/40 mt-0.5">Prix client : {formatPrice(finalPrice)}</p>
-                {imageUrl ? (
+                {videoUrl ? (
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <Camera className="w-3 h-3 text-emerald-400" />
+                    <span className="text-[10px] text-emerald-400/70">Vidéo jointe au partage</span>
+                  </div>
+                ) : imageUrl ? (
                   <div className="flex items-center gap-1.5 mt-1">
                     <ImageIcon className="w-3 h-3 text-emerald-400" />
                     <span className="text-[10px] text-emerald-400/70">Image jointe au partage</span>
@@ -651,18 +666,18 @@ function MarketingShareModal({
                 ) : (
                   <div className="flex items-center gap-1.5 mt-1">
                     <ImageIcon className="w-3 h-3 text-amber-400" />
-                    <span className="text-[10px] text-amber-400/70">Aucune image disponible</span>
+                    <span className="text-[10px] text-amber-400/70">Aucun média disponible</span>
                   </div>
                 )}
               </div>
             </div>
           </motion.div>
 
-          {/* Share with image button (native Web Share API) */}
-          {imageUrl && nativeShareSupported && (
+          {/* Share with media button (native Web Share API) */}
+          {(videoUrl || imageUrl) && nativeShareSupported && (
             <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
               <Button
-                onClick={shareWithImage}
+                onClick={shareWithMedia}
                 disabled={imageLoading}
                 className="w-full h-12 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white text-sm font-semibold shadow-lg shadow-emerald-500/20 relative overflow-hidden"
               >
@@ -825,6 +840,7 @@ export function RecommenderTab() {
     basePrice: number
     commissionPct: number
     imageUrl?: string
+    videoUrl?: string
     shareLink: string
     description?: string
     category?: string
@@ -943,6 +959,7 @@ export function RecommenderTab() {
       basePrice: product.basePrice,
       commissionPct: localCommissions[rp.id] ?? rp.commissionPct,
       imageUrl,
+      videoUrl: product.videoUrl || undefined,
       shareLink,
       description: product.description,
       category: product.category,

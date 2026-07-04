@@ -26,7 +26,7 @@ function shuffle<T>(arr: T[]): T[] {
  * Utilise ScraperAPI pour contourner les protections anti-bot d'Alibaba.
  * Rend le JavaScript de la page pour assurer que les données sont présentes.
  */
-async function fetchViaScraperAPI(targetUrl: string): Promise<{ text: string; title: string; images: string[] }> {
+async function fetchViaScraperAPI(targetUrl: string): Promise<{ text: string; title: string; images: string[], videos: string[] }> {
   const scraperApiKey = process.env.SCRAPER_API_KEY || '3565fc05ecea04a4dc89191a4eeab263';
   
   // Utilisation de render=true pour forcer l'exécution du JavaScript (nécessaire pour Alibaba)
@@ -81,7 +81,19 @@ async function fetchViaScraperAPI(targetUrl: string): Promise<{ text: string; ti
     }
   }
 
-  return { text, title, images };
+  // Extraire les vidéos du HTML
+  const videoRegex = /(?:src|data-src|data-video-url|poster)=["']([^"']+\.(mp4|webm|ogg)(\?[^"']*)?)\s*["']/gi;
+  const videos: string[] = [];
+  let videoMatch;
+  while ((videoMatch = videoRegex.exec(pageHtml)) !== null) {
+    let videoUrl = videoMatch[1];
+    if (videoUrl.startsWith('//')) videoUrl = 'https:' + videoUrl;
+    if (videoUrl.startsWith('http') && videoUrl.length > 20) {
+      videos.push(videoUrl);
+    }
+  }
+
+  return { text, title, images, videos };
 }
 
 // POST /api/import-product - Import product data from Alibaba/AliExpress URL
@@ -117,6 +129,7 @@ export async function POST(request: NextRequest) {
     let pageText = ''
     let pageTitle = ''
     let extractedImages: string[] = []
+    let extractedVideos: string[] = []
 
     try {
       console.log('[import-product] Trying ScraperAPI for:', url)
@@ -127,6 +140,7 @@ export async function POST(request: NextRequest) {
         pageText = scrapeResult.text
         pageTitle = scrapeResult.title
         extractedImages = scrapeResult.images
+        extractedVideos = scrapeResult.videos
         console.log('[import-product] ScraperAPI success, text length:', pageText.length)
       } else {
         console.warn('[import-product] ScraperAPI hit anti-bot wall or product not found.')
@@ -146,6 +160,7 @@ export async function POST(request: NextRequest) {
     // Limiter le texte pour ne pas dépasser les limites de tokens du LLM
     const truncatedText = pageText.slice(0, 10000)
     const uniqueImages = [...new Set(extractedImages)].slice(0, 10)
+    const uniqueVideos = [...new Set(extractedVideos)].slice(0, 5)
 
     // ========================================================================
     // Step 2: Utiliser le LLM pour extraire et reformuler les données produit
@@ -247,6 +262,7 @@ Règles:
       description: String(productData.description || ''),
       price: Number(productData.price) || 0,
       images: uniqueImages,
+      videos: uniqueVideos,
       category: String(productData.category || 'autre'),
       weight: String(productData.weight || ''),
       dimensions: String(productData.dimensions || ''),

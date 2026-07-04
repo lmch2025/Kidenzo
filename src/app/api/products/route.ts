@@ -3,6 +3,11 @@ import { db, withRetry } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 import sharp from 'sharp'
+import { v2 as cloudinary } from 'cloudinary'
+
+cloudinary.config({
+  secure: true
+})
 
 const IMGBB_API_KEY = process.env.IMGBB_API_KEY || '3ca1301a4e529153d12db10659925594'
 
@@ -67,6 +72,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const ownerId = searchParams.get('ownerId')
     const status = searchParams.get('status')
+    const brand = searchParams.get('brand')
     const limitParam = searchParams.get('limit')
     const skipParam = searchParams.get('skip')
 
@@ -80,6 +86,7 @@ export async function GET(request: NextRequest) {
       where: {
         ...(ownerId ? { ownerId } : {}),
         ...(status ? { status } : {}),
+        ...(brand ? { brand } : {}),
       },
       include: {
         owner: {
@@ -117,7 +124,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { ownerId, name, description, basePrice, category, stock, maxCommission, commissionPerClick, weight, dimensions, sourceUrl, images } = body
+    const { ownerId, name, description, basePrice, category, stock, maxCommission, commissionPerClick, weight, dimensions, sourceUrl, videoUrl, images, brand: inputBrand } = body
 
     if (!ownerId || !name || !description || basePrice === undefined) {
       return NextResponse.json(
@@ -138,12 +145,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (owner.role !== 'owner' && owner.role !== 'ambassador') {
+    if (owner.role !== 'owner' && owner.role !== 'ambassador' && owner.role !== 'admin_neolife') {
       return NextResponse.json(
-        { error: 'Only owners or ambassadors can create products' },
+        { error: 'Only owners, ambassadors, or neolife admins can create products' },
         { status: 403 }
       )
     }
+
+    const brand = owner.role === 'admin_neolife' ? 'neolife' : (inputBrand || 'kidenzo');
 
     let youtubeUrl: string | null = null;
     try {
@@ -161,6 +170,19 @@ export async function POST(request: NextRequest) {
       console.error('YouTube search error:', e);
     }
 
+    let finalVideoUrl = videoUrl || null;
+    if (finalVideoUrl && !finalVideoUrl.includes('cloudinary')) {
+      try {
+        const result = await cloudinary.uploader.upload(finalVideoUrl, {
+          folder: "recopay/videos",
+          resource_type: "video",
+        });
+        finalVideoUrl = result.secure_url;
+      } catch (err) {
+        console.error("Failed to upload video to cloudinary:", err);
+      }
+    }
+
     const product = await db.product.create({
       data: {
         ownerId,
@@ -169,11 +191,13 @@ export async function POST(request: NextRequest) {
         basePrice: parseFloat(String(basePrice)),
         category: category || 'general',
         stock: stock ? parseInt(String(stock)) : 0,
+        brand,
         maxCommission: maxCommission ? parseInt(String(maxCommission)) : 40,
         commissionPerClick: commissionPerClick ? parseFloat(String(commissionPerClick)) : 0,
         weight: weight || '',
         dimensions: dimensions || '',
         sourceUrl: sourceUrl || null,
+        videoUrl: finalVideoUrl,
         youtubeUrl,
       },
       include: {
@@ -232,7 +256,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const { id, name, description, basePrice, category, stock, status, maxCommission, weight, dimensions, sourceUrl, youtubeUrl, images } = body
+    const { id, name, description, basePrice, category, stock, status, maxCommission, weight, dimensions, sourceUrl, youtubeUrl, videoUrl, images } = body
 
     if (!id) {
       return NextResponse.json(
@@ -258,12 +282,30 @@ export async function PUT(request: NextRequest) {
     if (basePrice !== undefined) updateData.basePrice = parseFloat(String(basePrice))
     if (category !== undefined) updateData.category = category
     if (stock !== undefined) updateData.stock = parseInt(String(stock))
+    if (body.brand !== undefined) updateData.brand = body.brand
     if (status !== undefined) updateData.status = status
     if (maxCommission !== undefined) updateData.maxCommission = parseInt(String(maxCommission))
     if (weight !== undefined) updateData.weight = weight
     if (dimensions !== undefined) updateData.dimensions = dimensions
     if (sourceUrl !== undefined) updateData.sourceUrl = sourceUrl
     if (youtubeUrl !== undefined) updateData.youtubeUrl = youtubeUrl
+    
+    if (videoUrl !== undefined) {
+      if (videoUrl && !videoUrl.includes('cloudinary')) {
+        try {
+          const result = await cloudinary.uploader.upload(videoUrl, {
+            folder: "recopay/videos",
+            resource_type: "video",
+          });
+          updateData.videoUrl = result.secure_url;
+        } catch (err) {
+          console.error("Failed to upload video to cloudinary:", err);
+          updateData.videoUrl = videoUrl;
+        }
+      } else {
+        updateData.videoUrl = videoUrl;
+      }
+    }
 
     const product = await db.product.update({
       where: { id },

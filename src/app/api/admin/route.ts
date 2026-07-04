@@ -212,7 +212,7 @@ export async function GET(request: NextRequest) {
       ])
 
       // Revenue chart data (last 7 days)
-      const revenueChartData = []
+      const revenueChartData: any[] = []
       for (let i = 6; i >= 0; i--) {
         const dayStart = daysAgo(i)
         const dayEnd = new Date(dayStart)
@@ -629,6 +629,143 @@ export async function GET(request: NextRequest) {
           acc[c.key] = c.value
           return acc
         }, {}),
+      })
+    }
+
+    // ─── Wallet overview ──────────────────────────────────────────
+    if (action === 'wallet-overview') {
+      const [totalPlans, activePlans, completedPlans, totalGoals, activeGoals, completedGoals] = await Promise.all([
+        db.installmentPlan.count(),
+        db.installmentPlan.count({ where: { status: 'active' } }),
+        db.installmentPlan.count({ where: { status: 'completed' } }),
+        db.savingsGoal.count(),
+        db.savingsGoal.count({ where: { status: 'active' } }),
+        db.savingsGoal.count({ where: { status: 'completed' } }),
+      ])
+
+      const totalCreditAmount = await db.installmentPlan.aggregate({
+        _sum: { totalAmount: true, remainingAmount: true },
+        where: { status: 'active' },
+      })
+
+      const totalSavingsAmount = await db.savingsGoal.aggregate({
+        _sum: { targetAmount: true, currentAmount: true },
+        where: { status: 'active' },
+      })
+
+      const overduePlans = await db.installmentPlan.count({
+        where: {
+          status: 'active',
+          nextDueDate: { lt: new Date() },
+        },
+      })
+
+      const recentPlans = await db.installmentPlan.findMany({
+        take: 10,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          wallet: { include: { user: { select: { id: true, name: true, phone: true } } } },
+        },
+      })
+
+      const recentGoals = await db.savingsGoal.findMany({
+        take: 10,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          wallet: { include: { user: { select: { id: true, name: true, phone: true } } } },
+        },
+      })
+
+      // Wallet config from SystemConfig
+      const walletConfigs = await db.systemConfig.findMany({
+        where: {
+          key: {
+            in: [
+              'wallet_min_down_payment_pct',
+              'wallet_max_down_payment_pct',
+              'wallet_max_installment_days',
+              'wallet_min_installment_days',
+              'wallet_daily_reminder_enabled',
+              'wallet_daily_reminder_hour',
+              'wallet_late_penalty_enabled',
+              'wallet_late_penalty_pct',
+              'wallet_max_active_plans',
+              'wallet_max_active_goals',
+              'wallet_min_savings_deposit',
+              'wallet_credit_enabled',
+              'wallet_savings_enabled',
+            ],
+          },
+        },
+      })
+
+      // Build config map with defaults
+      const configMap: Record<string, string> = {}
+      walletConfigs.forEach(c => { configMap[c.key] = c.value })
+
+      const walletConfig = {
+        wallet_min_down_payment_pct: configMap['wallet_min_down_payment_pct'] || '20',
+        wallet_max_down_payment_pct: configMap['wallet_max_down_payment_pct'] || '80',
+        wallet_max_installment_days: configMap['wallet_max_installment_days'] || '180',
+        wallet_min_installment_days: configMap['wallet_min_installment_days'] || '7',
+        wallet_daily_reminder_enabled: configMap['wallet_daily_reminder_enabled'] || 'true',
+        wallet_daily_reminder_hour: configMap['wallet_daily_reminder_hour'] || '9',
+        wallet_late_penalty_enabled: configMap['wallet_late_penalty_enabled'] || 'false',
+        wallet_late_penalty_pct: configMap['wallet_late_penalty_pct'] || '0',
+        wallet_max_active_plans: configMap['wallet_max_active_plans'] || '5',
+        wallet_max_active_goals: configMap['wallet_max_active_goals'] || '10',
+        wallet_min_savings_deposit: configMap['wallet_min_savings_deposit'] || '100',
+        wallet_credit_enabled: configMap['wallet_credit_enabled'] || 'true',
+        wallet_savings_enabled: configMap['wallet_savings_enabled'] || 'true',
+      }
+
+      const pushSubscriptionCount = await db.pushSubscription.count()
+
+      return NextResponse.json({
+        stats: {
+          credit: {
+            total: totalPlans,
+            active: activePlans,
+            completed: completedPlans,
+            overdue: overduePlans,
+            totalAmount: totalCreditAmount._sum.totalAmount || 0,
+            remainingAmount: totalCreditAmount._sum.remainingAmount || 0,
+          },
+          savings: {
+            total: totalGoals,
+            active: activeGoals,
+            completed: completedGoals,
+            targetAmount: totalSavingsAmount._sum.targetAmount || 0,
+            currentAmount: totalSavingsAmount._sum.currentAmount || 0,
+          },
+          pushSubscriptions: pushSubscriptionCount,
+        },
+        recentPlans: recentPlans.map(p => ({
+          id: p.id,
+          productName: p.productName,
+          totalAmount: p.totalAmount,
+          remainingAmount: p.remainingAmount,
+          installmentAmount: p.installmentAmount,
+          paidInstallments: p.paidInstallments,
+          totalInstallments: p.totalInstallments,
+          status: p.status,
+          nextDueDate: p.nextDueDate,
+          frequency: p.frequency,
+          createdAt: p.createdAt,
+          user: p.wallet.user,
+        })),
+        recentGoals: recentGoals.map(g => ({
+          id: g.id,
+          productName: g.productName,
+          targetAmount: g.targetAmount,
+          currentAmount: g.currentAmount,
+          dailyTarget: g.dailyTarget,
+          status: g.status,
+          targetDate: g.targetDate,
+          createdAt: g.createdAt,
+          user: g.wallet.user,
+        })),
+        config: walletConfig,
       })
     }
 
@@ -1128,7 +1265,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Upsert each key-value pair into SystemConfig
-      const results = []
+      const results: any[] = []
       for (const [key, value] of Object.entries(settings)) {
         const config = await db.systemConfig.upsert({
           where: { key },
@@ -1260,9 +1397,94 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ product })
     }
 
+    // ─── Update wallet config ────────────────────────────────────
+    if (action === 'update-wallet-config') {
+      const { settings } = body
+      if (!settings || typeof settings !== 'object') {
+        return NextResponse.json({ error: 'settings est requis' }, { status: 400 })
+      }
+
+      const validKeys = [
+        'wallet_min_down_payment_pct',
+        'wallet_max_down_payment_pct',
+        'wallet_max_installment_days',
+        'wallet_min_installment_days',
+        'wallet_daily_reminder_enabled',
+        'wallet_daily_reminder_hour',
+        'wallet_late_penalty_enabled',
+        'wallet_late_penalty_pct',
+        'wallet_max_active_plans',
+        'wallet_max_active_goals',
+        'wallet_min_savings_deposit',
+        'wallet_credit_enabled',
+        'wallet_savings_enabled',
+      ]
+
+      let updateCount = 0
+      for (const [key, value] of Object.entries(settings)) {
+        if (validKeys.includes(key)) {
+          await db.systemConfig.upsert({
+            where: { key },
+            update: { value: String(value) },
+            create: { key, value: String(value) },
+          })
+          updateCount++
+        }
+      }
+
+      // Sync with cron-job.org if enabled
+      try {
+        if (settings.wallet_daily_reminder_enabled === 'true') {
+          const { ensureWalletCronJob, deleteCronJob, listCronJobs } = await import('@/lib/cronjob-org')
+          const cronSecret = process.env.CRON_SECRET || 'default_secret'
+          const baseUrl = request.headers.get('origin') || request.headers.get('host') || 'http://localhost:3000'
+          const protocol = baseUrl.startsWith('http') ? '' : 'https://'
+          
+          // Parse hours from settings (e.g. "8,12,18")
+          const hoursStr = settings.wallet_daily_reminder_hour || '9'
+          const hours = hoursStr.split(',').map((h: string) => parseInt(h.trim())).filter((h: number) => !isNaN(h))
+          
+          if (hours.length > 0) {
+            await ensureWalletCronJob(`${protocol}${baseUrl}`, cronSecret, hours)
+          }
+        } else {
+          // Disable/Delete if disabled
+          const { listCronJobs, deleteCronJob } = await import('@/lib/cronjob-org')
+          const jobs = await listCronJobs()
+          const existingJob = jobs.find(j => j.title === 'Kidenzo Wallet - Rappels Remboursement')
+          if (existingJob && existingJob.jobId) {
+            await deleteCronJob(existingJob.jobId)
+          }
+        }
+      } catch (e) {
+        console.error("Erreur synchronisation cron-job.org:", e)
+        // Non-bloquant pour l'admin
+      }
+
+      return NextResponse.json({ success: true, updated: updateCount })
+    }
+
+    // ─── Trigger wallet cron manually ────────────────────────────
+    if (action === 'trigger-wallet-cron') {
+      try {
+        const cronSecret = process.env.CRON_SECRET || ''
+        const baseUrl = request.headers.get('origin') || request.headers.get('host') || 'http://localhost:3000'
+        const protocol = baseUrl.startsWith('http') ? '' : 'http://'
+        const cronUrl = `${protocol}${baseUrl}/api/wallet/cron?secret=${encodeURIComponent(cronSecret)}`
+
+        const cronRes = await fetch(cronUrl)
+        const cronData = await cronRes.json()
+
+        return NextResponse.json({ success: true, cronResult: cronData })
+      } catch (error) {
+        console.error('Trigger cron error:', error)
+        return NextResponse.json({ error: 'Erreur lors du déclenchement du cron' }, { status: 500 })
+      }
+    }
+
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Admin POST error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error', details: error?.message || String(error) }, { status: 500 })
   }
 }

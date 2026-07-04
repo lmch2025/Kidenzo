@@ -23,6 +23,8 @@ const ActivityTab = dynamic(() => import('@/components/ActivityTab').then(m => (
 const GamificationPanel = dynamic(() => import('@/components/GamificationPanel'), { ssr: false, loading: () => <TabLoadingFallback /> })
 const ProfileTab = dynamic(() => import('@/components/ProfileTab').then(m => ({ default: m.ProfileTab })), { ssr: false, loading: () => <TabLoadingFallback /> })
 const PublicProductsPage = dynamic(() => import('@/components/PublicProductsPage'), { ssr: false, loading: () => <TabLoadingFallback /> })
+const WalletFAB = dynamic(() => import('@/components/WalletFAB'), { ssr: false })
+const CustomerWalletModal = dynamic(() => import('@/components/CustomerWalletModal'), { ssr: false })
 
 function TabLoadingFallback() {
   return (
@@ -313,7 +315,7 @@ export function DashboardLayout() {
         )}
 
         {/* Content Area */}
-        <main className={`flex-1 p-4 ${isAuthenticated ? 'pb-28 md:pb-4' : 'pb-4'} overflow-y-auto`}>
+        <main id="main-scroll-container" className={`flex-1 p-4 ${isAuthenticated ? 'pb-28 md:pb-4' : 'pb-4'} overflow-y-auto`}>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={dashboardTab}
@@ -327,6 +329,10 @@ export function DashboardLayout() {
           </AnimatePresence>
         </main>
       </div>
+
+      {/* Wallet Components */}
+      <WalletFAB />
+      <CustomerWalletModal />
 
       {/* Mobile Bottom Nav - Exactly 5 items */}
       {isAuthenticated && (

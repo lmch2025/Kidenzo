@@ -47,7 +47,9 @@ import {
   SlidersHorizontal,
   Youtube,
   PlayCircle,
-  X
+  X,
+  ShoppingCart,
+  PiggyBank
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -66,6 +68,8 @@ import CommissionPopup from './CommissionPopup'
 import MarketingShareModal from './MarketingShareModal'
 import AuthScreen from '@/components/AuthScreen'
 import VerifiedReviews from './VerifiedReviews'
+import CreditPurchaseSheet from './CreditPurchaseSheet'
+import SavingsGoalSheet from './SavingsGoalSheet'
 
 interface MiniSiteViewProps {
   slug: string
@@ -663,6 +667,8 @@ export default function MiniSiteView({ slug, onClose }: MiniSiteViewProps) {
   const [commissionPopupOpen, setCommissionPopupOpen] = useState(false)
   const [pendingCommission, setPendingCommission] = useState<number | null>(null)
   const [shareModalOpen, setShareModalOpen] = useState(false)
+  const [creditSheetOpen, setCreditSheetOpen] = useState(false)
+  const [savingsSheetOpen, setSavingsSheetOpen] = useState(false)
   const [shareModalLink, setShareModalLink] = useState('')
   const [shareModalCommission, setShareModalCommission] = useState(0)
   const [orderSuccess, setOrderSuccess] = useState(false)
@@ -1068,6 +1074,7 @@ export default function MiniSiteView({ slug, onClose }: MiniSiteViewProps) {
   const viewerCount = ((product.name.length * 7) % 5) + 3
 
   return (
+    <>
     <div className="min-h-screen bg-[#0a0118] relative pb-2 font-sans text-white selection:bg-orange-500/30 selection:text-white overflow-x-hidden">
       {/* Background ambient effects */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
@@ -1219,7 +1226,7 @@ export default function MiniSiteView({ slug, onClose }: MiniSiteViewProps) {
           {/* ━━━ VIDEO ━━━ */}
           {product.youtubeUrl && (
             <ScrollSection delay={0.05}>
-              <ProductVideo youtubeUrl={product.youtubeUrl} thumbnailUrl={product.imageUrl} />
+              <ProductVideo youtubeUrl={product.youtubeUrl} thumbnailUrl={product.images?.[0]?.storageUrl} />
             </ScrollSection>
           )}
 
@@ -1447,6 +1454,28 @@ export default function MiniSiteView({ slug, onClose }: MiniSiteViewProps) {
                 Commander via WhatsApp
               </motion.button>
 
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/5 mt-2">
+                <motion.button
+                  onClick={() => setCreditSheetOpen(true)}
+                  className="w-full h-12 rounded-2xl bg-pink-500/10 border border-pink-500/30 hover:bg-pink-500/20 text-pink-400 font-semibold text-sm flex flex-col items-center justify-center gap-0.5 transition-colors"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <span className="flex items-center gap-1.5"><ShoppingCart className="w-4 h-4" /> Acheter à crédit</span>
+                  <span className="text-[9px] opacity-70">Paie petit à petit</span>
+                </motion.button>
+
+                <motion.button
+                  onClick={() => setSavingsSheetOpen(true)}
+                  className="w-full h-12 rounded-2xl bg-orange-500/10 border border-orange-500/30 hover:bg-orange-500/20 text-orange-400 font-semibold text-sm flex flex-col items-center justify-center gap-0.5 transition-colors"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <span className="flex items-center gap-1.5"><PiggyBank className="w-4 h-4" /> Épargner</span>
+                  <span className="text-[9px] opacity-70">Mets de côté pour l'avoir</span>
+                </motion.button>
+              </div>
+
               <p className="text-white/20 text-[10px] text-center flex items-center justify-center gap-1">
                 <Shield className="w-3 h-3" />
                 Commande sécurisée · Vendeur vérifié
@@ -1497,7 +1526,7 @@ export default function MiniSiteView({ slug, onClose }: MiniSiteViewProps) {
         price={finalPrice}
         disabled={miniSite.product.stock <= 0}
         showRecommend={!referrerId}
-        maxCommission={miniSite.product.recommenderMaxCommission ?? miniSite.product.maxCommission}
+        maxCommission={miniSite.product.maxCommission}
       />
 
       {/* ─── ORDER SHEET ─── */}
@@ -1936,6 +1965,7 @@ export default function MiniSiteView({ slug, onClose }: MiniSiteViewProps) {
             name: miniSite.product.name,
             basePrice: miniSite.product.basePrice,
             imageUrl: miniSite.product.images && miniSite.product.images.length > 0 ? miniSite.product.images[0].storageUrl : undefined,
+            videoUrl: miniSite.product.youtubeUrl || undefined,
             description: miniSite.product.description,
             category: miniSite.product.category,
           }}
@@ -2000,5 +2030,30 @@ export default function MiniSiteView({ slug, onClose }: MiniSiteViewProps) {
         document.body
       )}
     </div>
+
+      <CreditPurchaseSheet
+        open={creditSheetOpen}
+        onClose={() => setCreditSheetOpen(false)}
+        product={miniSite?.product ? {
+          id: miniSite.product.id,
+          name: miniSite.product.name,
+          basePrice: miniSite.product.basePrice,
+          images: miniSite.product.images?.map((img: any) => ({ storageUrl: img.storageUrl }))
+        } : null}
+        miniSiteId={miniSite?.id || ''}
+        recommenderId={referrerId || undefined}
+      />
+
+      <SavingsGoalSheet
+        open={savingsSheetOpen}
+        onClose={() => setSavingsSheetOpen(false)}
+        product={miniSite?.product ? {
+          id: miniSite.product.id,
+          name: miniSite.product.name,
+          basePrice: miniSite.product.basePrice,
+          images: miniSite.product.images?.map((img: any) => ({ storageUrl: img.storageUrl }))
+        } : null}
+      />
+    </>
   )
 }

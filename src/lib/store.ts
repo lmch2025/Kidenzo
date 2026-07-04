@@ -37,6 +37,7 @@ export interface Product {
   weight: string
   dimensions: string
   sourceUrl: string | null
+  videoUrl: string | null
   createdAt: string
   images?: ProductImage[]
   miniSite?: MiniSite | null
@@ -47,6 +48,7 @@ export interface ImportProductResult {
   description: string
   price: number
   images: string[]
+  videos: string[]
   category: string
   weight: string
   dimensions: string
@@ -278,6 +280,78 @@ export interface SuspiciousActivityData {
   createdAt: string
 }
 
+export interface CustomerWalletData {
+  id: string
+  balance: number
+  totalSaved: number
+  totalSpent: number
+  activePlans: InstallmentPlanData[]
+  savingsGoals: SavingsGoalData[]
+  recentTransactions: WalletTransactionData[]
+}
+
+export interface InstallmentPlanData {
+  id: string
+  orderId: string
+  productName: string
+  productImage: string | null
+  totalAmount: number
+  downPayment: number
+  remainingAmount: number
+  installmentAmount: number
+  frequency: string
+  totalInstallments: number
+  paidInstallments: number
+  nextDueDate: string | null
+  status: string
+  completedAt: string | null
+  createdAt: string
+  payments: InstallmentPaymentData[]
+}
+
+export interface InstallmentPaymentData {
+  id: string
+  amount: number
+  paymentMethod: string
+  reference: string | null
+  status: string
+  paidAt: string
+}
+
+export interface SavingsGoalData {
+  id: string
+  productId: string
+  productName: string
+  productImage: string | null
+  targetAmount: number
+  currentAmount: number
+  dailyTarget: number | null
+  targetDate: string | null
+  status: string
+  completedAt: string | null
+  createdAt: string
+  deposits: SavingsDepositData[]
+}
+
+export interface SavingsDepositData {
+  id: string
+  amount: number
+  paymentMethod: string
+  status: string
+  depositedAt: string
+}
+
+export interface WalletTransactionData {
+  id: string
+  type: string
+  amount: number
+  description: string
+  reference: string | null
+  balanceBefore: number
+  balanceAfter: number
+  createdAt: string
+}
+
 export type AppView = 'public' | 'auth' | 'dashboard' | 'mini-site'
 export type DashboardTab = 'overview' | 'catalog' | 'activity' | 'gamification' | 'profile'
 export type ActivitySubTab = 'orders' | 'wallet' | 'clicks' | 'recommender' | 'ambassador'
@@ -329,6 +403,11 @@ interface AppState {
   spinResult: SpinResult | null
   isDataLoaded: boolean
 
+  // Customer Wallet
+  customerWallet: CustomerWalletData | null
+  showWalletModal: boolean
+  walletModalContext: { productId?: string; productName?: string; productPrice?: number; productImage?: string; tab?: 'home' | 'credits' | 'savings' | 'history' } | null
+
   // Actions
   setUser: (user: User | null, token: string | null) => void
   logout: () => void
@@ -366,6 +445,11 @@ interface AppState {
   updateUserRole: (role: UserRole) => void
   setDataLoaded: (loaded: boolean) => void
   preloadUserData: (user: User, token: string) => Promise<void>
+
+  // Wallet Actions
+  setCustomerWallet: (wallet: CustomerWalletData | null) => void
+  openWalletModal: (context?: { productId?: string; productName?: string; productPrice?: number; productImage?: string; tab?: 'home' | 'credits' | 'savings' | 'history' }) => void
+  closeWalletModal: () => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -408,6 +492,11 @@ export const useAppStore = create<AppState>()(
   levelUpAnimation: null,
   spinResult: null,
   isDataLoaded: false,
+
+  // Customer Wallet
+  customerWallet: null,
+  showWalletModal: false,
+  walletModalContext: null,
 
   // Actions
   setUser: (user, token) =>
@@ -555,6 +644,10 @@ export const useAppStore = create<AppState>()(
     })),
 
   setDataLoaded: (loaded) => set({ isDataLoaded: loaded }),
+
+  setCustomerWallet: (wallet) => set({ customerWallet: wallet }),
+  openWalletModal: (context) => set({ showWalletModal: true, walletModalContext: context || null }),
+  closeWalletModal: () => set({ showWalletModal: false, walletModalContext: null }),
 
   preloadUserData: async (user, token) => {
     try {
