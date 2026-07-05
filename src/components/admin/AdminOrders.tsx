@@ -7,7 +7,7 @@ import {
   ChevronDown, Calendar, DollarSign, Users, ArrowRight,
   Clock, CheckCircle2, XCircle, Truck, AlertCircle,
 } from 'lucide-react'
-import { formatPrice } from '@/lib/store'
+import { formatPrice, useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -371,6 +371,9 @@ function OrderCard({ order, index, onStatusChange, isUpdating }: OrderCardProps)
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 export function AdminOrders() {
+  const { user } = useAppStore()
+  const isAdminNeolife = user?.role === 'admin_neolife'
+
   const [orders, setOrders] = useState<AdminOrder[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -395,6 +398,7 @@ export function AdminOrders() {
       })
       if (s) params.set('search', s)
       if (status !== 'all') params.set('status', status)
+      if (isAdminNeolife) params.set('brand', 'neolife')
 
       const res = await fetch(`/api/admin?${params}`)
       if (res.ok) {

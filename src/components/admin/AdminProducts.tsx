@@ -17,7 +17,7 @@ import {
   Warehouse,
   Pencil,
 } from "lucide-react";
-import { formatPrice } from "@/lib/store";
+import { formatPrice, useAppStore } from "@/lib/store";
 import { PRODUCT_CATEGORIES } from "@/lib/categories";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +62,7 @@ interface AdminProduct {
   category: string;
   stock: number;
   status: string;
+  brand: 'kidenzo' | 'neolife';
   maxCommission: number;
   weight: string;
   dimensions: string;
@@ -109,6 +110,9 @@ function ProductCardSkeleton() {
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 export function AdminProducts() {
+  const { user } = useAppStore();
+  const isAdminNeolife = user?.role === 'admin_neolife';
+
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -136,6 +140,7 @@ export function AdminProducts() {
         });
         if (s) params.set("search", s);
         if (status !== "all") params.set("status", status);
+        if (isAdminNeolife) params.set("brand", "neolife");
 
         const res = await fetch(`/api/admin?${params}`);
         if (res.ok) {

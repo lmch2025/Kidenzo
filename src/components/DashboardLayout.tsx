@@ -131,12 +131,14 @@ export function DashboardLayout() {
 
   const roleBadgeColors: Record<string, string> = {
     owner: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+    admin_neolife: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
     ambassador: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
     recommender: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
   }
 
   const roleLabels: Record<string, string> = {
     owner: 'Propriétaire',
+    admin_neolife: 'Admin Neolife',
     ambassador: 'Ambassadeur',
     recommender: 'Recommandeur',
   }

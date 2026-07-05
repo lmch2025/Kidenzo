@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-export type UserRole = 'owner' | 'ambassador' | 'recommender'
+export type UserRole = 'owner' | 'ambassador' | 'recommender' | 'admin_neolife'
 
 export interface User {
   id: string
@@ -32,6 +32,7 @@ export interface Product {
   category: string
   stock: number
   status: string
+  brand: 'kidenzo' | 'neolife'
   maxCommission: number
   recommenderMaxCommission?: number
   weight: string

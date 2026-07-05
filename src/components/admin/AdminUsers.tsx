@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useAppStore } from '@/lib/store'
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -39,7 +40,7 @@ interface UsersResponse {
   totalPages: number
 }
 
-type RoleFilter = '' | 'owner' | 'ambassador' | 'recommender'
+type RoleFilter = '' | 'owner' | 'ambassador' | 'recommender' | 'admin_neolife'
 
 // ─── Role config ────────────────────────────────────────────────────
 
@@ -65,6 +66,13 @@ const roleConfig: Record<string, { label: string; color: string; bg: string; bor
     border: 'border-emerald-500/30',
     icon: Users,
   },
+  admin_neolife: {
+    label: 'Admin Neolife',
+    color: 'text-teal-400',
+    bg: 'bg-teal-500/15',
+    border: 'border-teal-500/30',
+    icon: Zap,
+  },
 }
 
 const roleFilterTabs: { id: RoleFilter; label: string }[] = [
@@ -72,6 +80,7 @@ const roleFilterTabs: { id: RoleFilter; label: string }[] = [
   { id: 'owner', label: 'Propriétaires' },
   { id: 'ambassador', label: 'Ambassadeurs' },
   { id: 'recommender', label: 'Recommandeurs' },
+  { id: 'admin_neolife', label: 'Admin Neolife' },
 ]
 
 // ─── Skeleton ───────────────────────────────────────────────────────
@@ -235,6 +244,7 @@ function UserCard({
   onRefresh: () => void
   onBanToggle: (userId: string, banned: boolean) => void
 }) {
+  const { user: currentUser } = useAppStore()
   const [isChangingRole, setIsChangingRole] = useState(false)
   const [isBanning, setIsBanning] = useState(false)
   const [currentRole, setCurrentRole] = useState(user.role)
@@ -457,7 +467,9 @@ function UserCard({
             </motion.button>
           </PopoverTrigger>
           <PopoverContent className="w-48 glass-strong border-white/10 p-1" align="start">
-            {(['owner', 'ambassador', 'recommender'] as const).map((role) => {
+            {(['owner', 'ambassador', 'recommender', 'admin_neolife'] as const)
+              .filter(role => role !== 'admin_neolife' || currentUser?.role === 'owner')
+              .map((role) => {
               const rc = roleConfig[role]
               const RIcon = rc.icon
               const isCurrent = currentRole === role

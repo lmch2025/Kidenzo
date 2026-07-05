@@ -340,11 +340,19 @@ export async function GET(request: NextRequest) {
       const limit = parseInt(searchParams.get('limit') || '20')
       const status = searchParams.get('status') // pending, confirmed, delivered, cancelled
       const search = searchParams.get('search') || ''
+      const brand = searchParams.get('brand') // kidenzo, neolife
       const dateFrom = searchParams.get('dateFrom')
       const dateTo = searchParams.get('dateTo')
 
       const where: Record<string, unknown> = {}
       if (status) where.status = status
+      if (brand) {
+        where.miniSite = {
+          product: {
+            brand,
+          },
+        }
+      }
       if (search) {
         where.OR = [
           { customerName: { contains: search } },
@@ -409,9 +417,11 @@ export async function GET(request: NextRequest) {
       const limit = parseInt(searchParams.get('limit') || '20')
       const search = searchParams.get('search') || ''
       const status = searchParams.get('status') // active, inactive
+      const brand = searchParams.get('brand') // kidenzo, neolife
 
       const where: Record<string, unknown> = {}
       if (status) where.status = status
+      if (brand) where.brand = brand
       if (search) {
         where.OR = [
           { name: { contains: search } },
@@ -444,6 +454,7 @@ export async function GET(request: NextRequest) {
           category: p.category,
           stock: p.stock,
           status: p.status,
+          brand: p.brand,
           maxCommission: p.maxCommission,
           weight: p.weight,
           dimensions: p.dimensions,
@@ -903,7 +914,7 @@ export async function POST(request: NextRequest) {
       if (!userId || !role) {
         return NextResponse.json({ error: 'userId and role are required' }, { status: 400 })
       }
-      const validRoles = ['owner', 'ambassador', 'recommender']
+      const validRoles = ['owner', 'ambassador', 'recommender', 'admin_neolife']
       if (!validRoles.includes(role)) {
         return NextResponse.json({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` }, { status: 400 })
       }

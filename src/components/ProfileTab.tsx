@@ -36,7 +36,7 @@ export function ProfileTab() {
 
   if (!user) return null
 
-  if (showAdmin && role === 'owner') {
+  if (showAdmin && (role === 'owner' || role === 'admin_neolife')) {
     return (
       <div className="space-y-4 relative">
         <div className="sticky top-0 z-50 bg-[#0a0118]/90 backdrop-blur-xl py-4 -mx-4 px-4 border-b border-white/10 mb-6">
@@ -82,10 +82,11 @@ export function ProfileTab() {
           <div className="flex gap-2">
             <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${
               role === 'owner' ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' :
+              role === 'admin_neolife' ? 'bg-teal-500/20 text-teal-400 border-teal-500/30' :
               role === 'ambassador' ? 'bg-purple-500/20 text-purple-400 border-purple-500/30' :
               'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
             }`}>
-              {role === 'owner' ? 'Propriétaire' : role === 'ambassador' ? 'Ambassadeur' : 'Recommandeur'}
+              {role === 'owner' ? 'Propriétaire' : role === 'admin_neolife' ? 'Admin Neolife' : role === 'ambassador' ? 'Ambassadeur' : 'Recommandeur'}
             </span>
             <span className={`px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r ${getLevelColor(user.level)} bg-clip-text text-transparent border border-white/10`}>
               {getLevelName(user.level)}
@@ -144,8 +145,8 @@ export function ProfileTab() {
         </motion.div>
       )}
 
-      {/* Administration Access for Owner */}
-      {role === 'owner' && (
+      {/* Administration Access for Admins */}
+      {(role === 'owner' || role === 'admin_neolife') && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

@@ -25,7 +25,7 @@ export interface AdminProduct {
   category: string;
   stock: number;
   status: string;
-  brand: string;
+  brand: 'kidenzo' | 'neolife';
   maxCommission: number;
   weight: string;
   dimensions: string;
