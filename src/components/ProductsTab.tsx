@@ -20,6 +20,7 @@ import {
   Sparkles,
   Camera,
   Pencil,
+  Star,
 } from 'lucide-react'
 import { useAppStore, formatPrice, type ImportProductResult } from '@/lib/store'
 import { EditProductModal, type AdminProduct } from '@/components/admin/EditProductModal'
@@ -221,6 +222,7 @@ export function ProductsTab() {
   const [importFormStock, setImportFormStock] = useState('10')
   const [importFormMaxCommission, setImportFormMaxCommission] = useState('40')
   const [importSelectedImages, setImportSelectedImages] = useState<Set<number>>(new Set())
+  const [importMainImageIndex, setImportMainImageIndex] = useState<number>(0)
   const [importSelectedVideo, setImportSelectedVideo] = useState<number | null>(null)
   const [manualVideoUrl, setManualVideoUrl] = useState('')
 
@@ -283,6 +285,7 @@ export function ProductsTab() {
     setImportFormStock('10')
     setImportFormMaxCommission('40')
     setImportSelectedImages(new Set())
+    setImportMainImageIndex(0)
     setImportSelectedVideo(null)
   }
 
@@ -357,6 +360,7 @@ export function ProductsTab() {
       setImportFormCategory(product.category || 'autre')
       // Select all images by default
       setImportSelectedImages(new Set(product.images.map((_, i) => i)))
+      setImportMainImageIndex(0)
       // Select first video by default if available
       setImportSelectedVideo(product.videos && product.videos.length > 0 ? 0 : null)
     } catch (error) {
@@ -373,9 +377,12 @@ export function ProductsTab() {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (token) headers['Authorization'] = `Bearer ${token}`
 
-      // Collect selected images
+      // Collect selected images (putting the main one first)
       const selectedImages = importedData
-        ? importedData.images.filter((_, i) => importSelectedImages.has(i))
+        ? [
+            ...(importSelectedImages.has(importMainImageIndex) ? [importedData.images[importMainImageIndex]] : []),
+            ...importedData.images.filter((_, i) => importSelectedImages.has(i) && i !== importMainImageIndex)
+          ]
         : []
 
       const res = await fetch('/api/products', {
@@ -598,7 +605,10 @@ export function ProductsTab() {
                 className="glass rounded-xl overflow-hidden group"
               >
                 {/* Image Placeholder */}
-                <div className="h-36 bg-gradient-to-br from-orange-500/10 to-purple-500/10 flex items-center justify-center relative overflow-hidden">
+                <div 
+                  className="h-36 bg-gradient-to-br from-orange-500/10 to-purple-500/10 flex items-center justify-center relative overflow-hidden cursor-pointer"
+                  onClick={() => setEditingProduct(product as unknown as AdminProduct)}
+                >
                   {product.images && product.images.length > 0 ? (
                     <img
                       src={product.images[0].storageUrl}
@@ -1312,7 +1322,7 @@ export function ProductsTab() {
                           transition={{ delay: idx * 0.05 }}
                           className={`relative group rounded-md overflow-hidden border-2 cursor-pointer aspect-square transition-all duration-200 ${
                             importSelectedImages.has(idx)
-                              ? 'border-emerald-500 shadow-sm shadow-emerald-500/20'
+                              ? (importMainImageIndex === idx ? 'border-orange-500 shadow-sm shadow-orange-500/40' : 'border-emerald-500 shadow-sm shadow-emerald-500/20')
                               : 'border-border/50 opacity-50 hover:opacity-80'
                           }`}
                           onClick={() => toggleImageSelection(idx)}
@@ -1323,19 +1333,36 @@ export function ProductsTab() {
                             className="w-full h-full object-contain"
                             loading="lazy"
                           />
-                          <div className={`absolute inset-0 flex items-center justify-center transition-colors ${
+                          <div className={`absolute inset-0 flex items-start justify-between p-1 transition-colors ${
                             importSelectedImages.has(idx)
                               ? 'bg-emerald-500/20'
                               : 'bg-background/40'
                           }`}>
                             <Checkbox
                               checked={importSelectedImages.has(idx)}
-                              className="pointer-events-none"
+                              className="pointer-events-none mt-1 ml-1"
                             />
+                            {importSelectedImages.has(idx) && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setImportMainImageIndex(idx)
+                                }}
+                                className={`w-6 h-6 flex items-center justify-center rounded-full backdrop-blur-sm transition-colors ${
+                                  importMainImageIndex === idx
+                                    ? 'bg-orange-500 text-white'
+                                    : 'bg-black/50 text-white/50 hover:bg-orange-500/80 hover:text-white'
+                                }`}
+                                title="Définir comme image principale"
+                              >
+                                <Star className={`w-3.5 h-3.5 ${importMainImageIndex === idx ? 'fill-current' : ''}`} />
+                              </button>
+                            )}
                           </div>
-                          {idx === 0 && importSelectedImages.has(idx) && (
-                            <Badge className="absolute top-0 left-0 text-[7px] px-0.5 py-0 bg-emerald-500 text-white border-0 rounded-none rounded-br-md">
-                              1ère
+                          {importMainImageIndex === idx && importSelectedImages.has(idx) && (
+                            <Badge className="absolute bottom-0 left-0 right-0 text-[9px] py-0.5 bg-orange-500 text-white border-0 rounded-none justify-center">
+                              Principale
                             </Badge>
                           )}
                         </motion.div>

@@ -33,7 +33,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { EditProductModal } from "./EditProductModal";
+import { EditProductModal, type AdminProduct } from "./EditProductModal";
+import { AdminProductCreateModal } from "./AdminProductCreateModal";
+import { AdminProductImportModal } from "./AdminProductImportModal";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -52,25 +54,6 @@ interface ProductOwner {
   id: string;
   name: string | null;
   phone: string;
-}
-
-interface AdminProduct {
-  id: string;
-  name: string;
-  description: string;
-  basePrice: number;
-  category: string;
-  stock: number;
-  status: string;
-  brand: 'kidenzo' | 'neolife';
-  maxCommission: number;
-  weight: string;
-  dimensions: string;
-  sourceUrl: string | null;
-  createdAt: string;
-  images: ProductImage[];
-  miniSite: ProductMiniSite | null;
-  owner: ProductOwner;
 }
 
 interface ProductsResponse {
@@ -124,6 +107,9 @@ export function AdminProducts() {
   const [isToggling, setIsToggling] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [editingProduct, setEditingProduct] = useState<AdminProduct | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   const limit = 12;
 
@@ -156,7 +142,7 @@ export function AdminProducts() {
         setIsLoading(false);
       }
     },
-    [],
+    [isAdminNeolife],
   );
 
   useEffect(() => {
@@ -272,10 +258,22 @@ export function AdminProducts() {
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <Button
               size="sm"
+              onClick={() => setIsImportModalOpen(true)}
               className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-emerald-500/20"
             >
               <Plus className="w-3.5 h-3.5 mr-1.5" />
               Importer
+            </Button>
+          </motion.div>
+
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Button
+              size="sm"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg shadow-orange-500/20 glow-orange"
+            >
+              <Plus className="w-3.5 h-3.5 mr-1.5" />
+              Nouveau Produit
             </Button>
           </motion.div>
         </div>
@@ -410,7 +408,10 @@ export function AdminProducts() {
                   isDeleting={isDeleting === product.id}
                   onToggleStatus={handleToggleStatus}
                   onDelete={handleDeleteProduct}
-                  onEdit={() => setEditingProduct(product)}
+                  onEdit={() => {
+                    setEditingProduct(product);
+                    setIsEditModalOpen(true);
+                  }}
                 />
               ))}
             </AnimatePresence>
@@ -419,11 +420,32 @@ export function AdminProducts() {
       </AnimatePresence>
 
       <EditProductModal
-        isOpen={!!editingProduct}
         product={editingProduct}
-        onClose={() => setEditingProduct(null)}
-        onSuccess={(updatedProduct) => {
-          setProducts((prev) => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingProduct(null);
+        }}
+        onSuccess={(updated) => {
+          setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+        }}
+      />
+
+      <AdminProductCreateModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={(newProduct) => {
+          setProducts((prev) => [newProduct, ...prev]);
+          setTotal((prev) => prev + 1);
+        }}
+      />
+
+      <AdminProductImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={(newProduct) => {
+          setProducts((prev) => [newProduct, ...prev]);
+          setTotal((prev) => prev + 1);
         }}
       />
 

@@ -409,6 +409,9 @@ interface AppState {
   showWalletModal: boolean
   walletModalContext: { productId?: string; productName?: string; productPrice?: number; productImage?: string; tab?: 'home' | 'credits' | 'savings' | 'history' } | null
 
+  // Order Creation Modal
+  showCreateOrderModal: boolean
+
   // Actions
   setUser: (user: User | null, token: string | null) => void
   logout: () => void
@@ -451,6 +454,8 @@ interface AppState {
   setCustomerWallet: (wallet: CustomerWalletData | null) => void
   openWalletModal: (context?: { productId?: string; productName?: string; productPrice?: number; productImage?: string; tab?: 'home' | 'credits' | 'savings' | 'history' }) => void
   closeWalletModal: () => void
+
+  setShowCreateOrderModal: (show: boolean) => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -498,6 +503,8 @@ export const useAppStore = create<AppState>()(
   customerWallet: null,
   showWalletModal: false,
   walletModalContext: null,
+
+  showCreateOrderModal: false,
 
   // Actions
   setUser: (user, token) =>
@@ -649,6 +656,8 @@ export const useAppStore = create<AppState>()(
   setCustomerWallet: (wallet) => set({ customerWallet: wallet }),
   openWalletModal: (context) => set({ showWalletModal: true, walletModalContext: context || null }),
   closeWalletModal: () => set({ showWalletModal: false, walletModalContext: null }),
+  
+  setShowCreateOrderModal: (show) => set({ showCreateOrderModal: show }),
 
   preloadUserData: async (user, token) => {
     try {

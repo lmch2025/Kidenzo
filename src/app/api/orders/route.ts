@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     if (recommenderId) {
       // Get the recommender's commission for this mini-site
-      const recommenderProduct = await db.recommenderProduct.findUnique({
+      let recommenderProduct = await db.recommenderProduct.findUnique({
         where: {
           recommenderId_miniSiteId: {
             recommenderId,
@@ -116,6 +116,17 @@ export async function POST(request: NextRequest) {
           },
         },
       })
+
+      if (!recommenderProduct && miniSite.product) {
+        // Auto-add to their boutique with max commission
+        recommenderProduct = await db.recommenderProduct.create({
+          data: {
+            recommenderId,
+            miniSiteId,
+            commissionPct: miniSite.product.maxCommission,
+          }
+        })
+      }
 
       if (recommenderProduct) {
         recommenderCommissionPct = recommenderProduct.commissionPct

@@ -19,7 +19,7 @@ import {
 import dynamic from 'next/dynamic'
 
 const AdminDashboard = dynamic(() => import('./AdminDashboard').then(m => ({ default: m.AdminDashboard })), { ssr: false })
-const ProductsTab = dynamic(() => import('../ProductsTab').then(m => ({ default: m.ProductsTab })), { ssr: false })
+const AdminProducts = dynamic(() => import('./AdminProducts').then(m => ({ default: m.AdminProducts })), { ssr: false })
 const AdminOrders = dynamic(() => import('./AdminOrders').then(m => ({ default: m.AdminOrders })), { ssr: false })
 const AdminUsers = dynamic(() => import('./AdminUsers').then(m => ({ default: m.AdminUsers })), { ssr: false })
 const AdminMiniSites = dynamic(() => import('./AdminMiniSites').then(m => ({ default: m.AdminMiniSites })), { ssr: false })
@@ -69,7 +69,7 @@ export function AdminPanel() {
   const renderSection = () => {
     switch (activeSection) {
       case 'dashboard': return <AdminDashboard />
-      case 'products': return <ProductsTab />
+      case 'products': return <AdminProducts />
       case 'orders': return <AdminOrders />
       case 'users': return <AdminUsers />
       case 'mini-sites': return <AdminMiniSites />
@@ -78,7 +78,7 @@ export function AdminPanel() {
       case 'wallet': return <AdminWallet />
       case 'withdrawals': return <AdminWithdrawals />
       case 'system': return <AdminSystem />
-      default: return isAdminNeolife ? <ProductsTab /> : <AdminDashboard />
+      default: return isAdminNeolife ? <AdminProducts /> : <AdminDashboard />
     }
   }
 

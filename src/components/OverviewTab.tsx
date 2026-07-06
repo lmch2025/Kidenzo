@@ -27,6 +27,7 @@ import {
   MousePointerClick,
   Wand2,
   MessageSquare,
+  PlusCircle,
 } from 'lucide-react'
 import { useAppStore, formatPrice, getLevelName, getLevelColor } from '@/lib/store'
 import { Button } from '@/components/ui/button'
@@ -153,7 +154,7 @@ function XPRing({ progress, level, size = 80 }: { progress: number; level: numbe
 }
 
 export function OverviewTab() {
-  const { user, products, orders, recommenderProducts, gamificationData, setDashboardTab, setActivitySubTab, isDataLoaded } = useAppStore()
+  const { user, products, orders, recommenderProducts, gamificationData, setDashboardTab, setActivitySubTab, isDataLoaded, setShowCreateOrderModal } = useAppStore()
   const isLoading = !isDataLoaded
 
   const userRole = user?.role as UserRole
@@ -362,6 +363,44 @@ export function OverviewTab() {
           )
         })}
       </div>
+
+      {/* ── HERO ACTION: Saisir une commande client ─── Available for all roles */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.42 }}
+      >
+          <button
+            id="btn-create-order"
+            onClick={() => setShowCreateOrderModal(true)}
+            className="w-full group relative overflow-hidden rounded-2xl p-5 sm:p-6 text-left
+              bg-gradient-to-br from-emerald-600/30 via-teal-600/20 to-cyan-600/20
+              border-2 border-emerald-500/40 hover:border-emerald-400/70
+              shadow-lg shadow-emerald-500/10 hover:shadow-emerald-500/25
+              transition-all duration-300 hover:-translate-y-0.5"
+          >
+            {/* Shimmer overlay on hover */}
+            <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/5 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+
+            {/* Glow blob */}
+            <div className="absolute -top-10 -right-10 w-40 h-40 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                <PlusCircle className="w-8 h-8 text-emerald-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xl sm:text-2xl font-extrabold text-white leading-tight">
+                  Saisir une commande client
+                </p>
+                <p className="text-sm text-emerald-300/80 mt-1">
+                  Votre client n'est pas à l'aise avec le téléphone ? Faites-le à sa place !
+                </p>
+              </div>
+              <ArrowRight className="w-7 h-7 text-emerald-400 shrink-0 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </button>
+        </motion.div>
 
       {/* Quick Actions */}
       <motion.div

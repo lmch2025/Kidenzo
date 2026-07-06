@@ -25,6 +25,7 @@ const ProfileTab = dynamic(() => import('@/components/ProfileTab').then(m => ({ 
 const PublicProductsPage = dynamic(() => import('@/components/PublicProductsPage'), { ssr: false, loading: () => <TabLoadingFallback /> })
 const WalletFAB = dynamic(() => import('@/components/WalletFAB'), { ssr: false })
 const CustomerWalletModal = dynamic(() => import('@/components/CustomerWalletModal'), { ssr: false })
+const CreateOrderModal = dynamic(() => import('@/components/CreateOrderModal'), { ssr: false })
 
 function TabLoadingFallback() {
   return (
@@ -335,6 +336,7 @@ export function DashboardLayout() {
       {/* Wallet Components */}
       <WalletFAB />
       <CustomerWalletModal />
+      <CreateOrderModal />
 
       {/* Mobile Bottom Nav - Exactly 5 items */}
       {isAuthenticated && (
