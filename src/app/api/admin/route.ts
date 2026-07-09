@@ -1286,6 +1286,36 @@ export async function POST(request: NextRequest) {
         results.push(config)
       }
 
+      // ── Sync default_ppc_rate → ClickConfig.ratePerClick ──────
+      if ('default_ppc_rate' in settings) {
+        const newRate = parseFloat(String(settings['default_ppc_rate']))
+        if (!isNaN(newRate) && newRate >= 0) {
+          const existingConfig = await db.clickConfig.findFirst()
+          if (existingConfig) {
+            await db.clickConfig.update({
+              where: { id: existingConfig.id },
+              data: { ratePerClick: newRate },
+            })
+          } else {
+            await db.clickConfig.create({
+              data: {
+                ratePerClick: newRate,
+                maxClicksPerIpPerDay: 3,
+                maxClicksPerFingerprint: 2,
+                minClickIntervalMs: 30000,
+                maxClicksPerRecommender: 500,
+                fraudScoreThreshold: 70,
+                autoBlockEnabled: true,
+                velocityWindowMinutes: 5,
+                maxClicksInVelocityWindow: 10,
+                requireVerification: false,
+                active: true,
+              },
+            })
+          }
+        }
+      }
+
       return NextResponse.json({ configs: results })
     }
 

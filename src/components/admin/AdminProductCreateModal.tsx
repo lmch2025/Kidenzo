@@ -392,7 +392,7 @@ export function AdminProductCreateModal({ isOpen, onClose, onSuccess }: AdminPro
             {step < 3 ? (
               <Button
                 onClick={() => setStep(step + 1)}
-                disabled={!formName || !formPrice}
+                disabled={step === 1 ? !formName : !formPrice}
                 className="bg-orange-500 hover:bg-orange-600 text-white"
               >
                 Suivant

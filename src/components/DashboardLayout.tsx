@@ -318,7 +318,7 @@ export function DashboardLayout() {
         )}
 
         {/* Content Area */}
-        <main id="main-scroll-container" className={`flex-1 p-4 ${isAuthenticated ? 'pb-28 md:pb-4' : 'pb-4'} overflow-y-auto`}>
+        <main id="main-scroll-container" className={`flex-1 overflow-y-auto ${dashboardTab === 'catalog' ? 'px-0 pt-0 pb-4' : 'p-4'} ${isAuthenticated ? 'pb-28 md:pb-4' : ''}`}>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={dashboardTab}

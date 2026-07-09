@@ -23,99 +23,35 @@ function LoadingFallback() {
 }
 
 export default function Home() {
-  const { isAuthenticated, user, currentView, miniSiteSlug, setProducts, setOrders, setRecommenderProducts, setGamificationData, setLeaderboard, setRewards, setClickStats, setDataLoaded } = useAppStore()
+  const { isAuthenticated, user, token, currentView, miniSiteSlug, setDataLoaded, setPpcRate, refreshUserFromDB, preloadUserData } = useAppStore()
+
+  // Load global PPC rate (no auth required)
+  useEffect(() => {
+    fetch('/api/settings')
+      .then((r) => r.json())
+      .then((d) => { if (typeof d.ppcRate === 'number') setPpcRate(d.ppcRate) })
+      .catch(() => {}) // silent — fallback is 5 FCFA
+  }, [setPpcRate])
 
   // Fetch user data when authenticated
   useEffect(() => {
-    if (!isAuthenticated || !user) return
+    if (!isAuthenticated || !user || !token) return
 
-    const fetchUserData = async () => {
+    const loadData = async () => {
       try {
-        const ordersParam = user.role === 'recommender' ? `recommenderId=${user.id}` : `ownerId=${user.id}`
-        
-        // Define all promises
-        const promises: Promise<void>[] = []
-        
-        // Product fetch (owners)
-        promises.push(
-          fetch(`/api/products?ownerId=${user.id}`).then(async (res) => {
-            if (res.ok) {
-              const data = await res.json()
-              setProducts(data.products || data || [])
-            }
-          }).catch(err => console.error('Products fetch error:', err))
-        )
+        // Step 1: Ensure user role is fresh (in case of recent promotion)
+        const freshUser = await refreshUserFromDB(token)
+        const activeUser = freshUser || user
 
-        // Orders fetch (all users)
-        promises.push(
-          fetch(`/api/orders?${ordersParam}`).then(async (res) => {
-            if (res.ok) {
-              const data = await res.json()
-              setOrders(data.orders || data || [])
-            }
-          }).catch(err => console.error('Orders fetch error:', err))
-        )
-
-        // Recommender specific fetches
-        if (user.role === 'recommender') {
-          promises.push(
-            fetch(`/api/recommender?userId=${user.id}`).then(async (res) => {
-              if (res.ok) {
-                const data = await res.json()
-                setRecommenderProducts(data.products || data.recommenderProducts || data || [])
-              }
-            }).catch(err => console.error('Recommender products fetch error:', err))
-          )
-          
-          promises.push(
-            fetch(`/api/clicks?userId=${user.id}`).then(async (res) => {
-              if (res.ok) {
-                const data = await res.json()
-                setClickStats(data)
-              }
-            }).catch(err => console.error('Clicks fetch error:', err))
-          )
-        }
-
-        // Gamification fetches
-        promises.push(
-          fetch(`/api/gamification?userId=${user.id}`).then(async (res) => {
-            if (res.ok) {
-              const data = await res.json()
-              setGamificationData(data)
-            }
-          }).catch(err => console.error('Gamification fetch error:', err))
-        )
-
-        promises.push(
-          fetch('/api/gamification?action=leaderboard').then(async (res) => {
-            if (res.ok) {
-              const data = await res.json()
-              setLeaderboard(data.leaderboard || [])
-            }
-          }).catch(err => console.error('Leaderboard fetch error:', err))
-        )
-
-        promises.push(
-          fetch('/api/gamification?action=rewards').then(async (res) => {
-            if (res.ok) {
-              const data = await res.json()
-              setRewards(data.rewards || [])
-            }
-          }).catch(err => console.error('Rewards fetch error:', err))
-        )
-
-        // Execute all promises in parallel
-        await Promise.all(promises)
-        setDataLoaded(true)
-        
+        // Step 2: Use the unified preload function to get all dashboard data
+        await preloadUserData(activeUser, token)
       } catch (error) {
         console.error('Failed to fetch user data:', error)
       }
     }
 
-    fetchUserData()
-  }, [isAuthenticated, user, setProducts, setOrders, setRecommenderProducts, setGamificationData, setLeaderboard, setRewards, setClickStats, setDataLoaded])
+    loadData()
+  }, [isAuthenticated, user, token, refreshUserFromDB, preloadUserData])
 
   // If viewing a mini-site from the dashboard
   if (currentView === 'mini-site' && miniSiteSlug) {

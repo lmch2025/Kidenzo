@@ -229,7 +229,7 @@ export default function MarketingShareModal({
             Outils Marketing
           </SheetTitle>
           <SheetDescription className="text-white/50">
-            Partagez <strong className="text-white/70">{product.name}</strong> et gagnez {formatPrice(product.basePrice * commissionPct / 100)} par vente + 5 FCFA/clic
+            Partagez <strong className="text-white/70">{product.name}</strong> et gagnez {formatPrice(product.basePrice * commissionPct / 100)} par vente + {ppcRate} FCFA/clic
           </SheetDescription>
         </SheetHeader>
 

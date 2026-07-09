@@ -698,6 +698,8 @@ export default function MiniSiteView({ slug, onClose }: MiniSiteViewProps) {
   // UI state
   const [showFullDesc, setShowFullDesc] = useState(false)
   const [liked, setLiked] = useState(false)
+  const [showShareDialog, setShowShareDialog] = useState(false)
+  const { ppcRate } = useAppStore()
   const [showShareToast, setShowShareToast] = useState(false)
   const [socialProofIndex, setSocialProofIndex] = useState(-1)
 
@@ -1618,7 +1620,7 @@ export default function MiniSiteView({ slug, onClose }: MiniSiteViewProps) {
                             <div className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-500/[0.06] border border-emerald-500/10">
                               <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0" />
                               <p className="text-[10px] text-emerald-400/70">
-                                Gagnez <strong className="text-emerald-300">{formatPrice(product.basePrice * commissionPct / 100)}</strong> par vente + 5 FCFA/clic
+                                <span className="text-emerald-400">gagne {Math.floor((product.basePrice * commissionPct) / 100)} FCFA/vente + {ppcRate} FCFA/clic</span>
                               </p>
                             </div>
                           </div>
@@ -1669,7 +1671,7 @@ export default function MiniSiteView({ slug, onClose }: MiniSiteViewProps) {
                             <div className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-500/[0.06] border border-emerald-500/10">
                               <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0" />
                               <p className="text-[10px] text-emerald-400/70">
-                                Gagnez <strong className="text-emerald-300">{formatPrice(product.basePrice * recommendCommission / 100)}</strong> par vente + 5 FCFA/clic
+                                Gagnez <strong className="text-emerald-300">{formatPrice(product.basePrice * recommendCommission / 100)}</strong> par vente + {ppcRate} FCFA/clic
                               </p>
                             </div>
                           </div>

@@ -378,16 +378,22 @@ export default function AuthScreen({ isModal = false }: { isModal?: boolean } = 
           return
         }
 
-        // Success - Start background data preloading immediately
+        // Success - Start background data preloading immediately with fresh user data from API
         setShowSuccess(true)
         
-        // Trigger background data preloading
-        preloadUserData(data.user, data.token)
+        // IMPORTANT: Use data.user directly (fresh from DB) to avoid stale role from localStorage
+        // This is critical for users whose role was promoted by an admin since last login
+        const freshUser = data.user
+        const freshToken = data.token
+        
+        // Trigger background data preloading with the FRESH user role from DB
+        preloadUserData(freshUser, freshToken)
         
         // Wait ONLY for the animation time
         await new Promise((resolve) => setTimeout(resolve, 600))
         
-        setUser(data.user, data.token)
+        // setUser with fresh data from DB (overwrites any stale localStorage data)
+        setUser(freshUser, freshToken)
         addXPNotification(50, 'Bienvenue !')
         setShowAuthModal(false)
         setCurrentView('dashboard')

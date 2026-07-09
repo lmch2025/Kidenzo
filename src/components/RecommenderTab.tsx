@@ -331,7 +331,7 @@ function CommissionSlider({
           <p className="text-[10px] text-muted-foreground/50">+ Clics</p>
           <p className="text-sm font-bold text-emerald-400 flex items-center gap-0.5">
             <MousePointerClick className="w-3 h-3" />
-            5 FCFA/clic
+            {ppcRate} FCFA/clic
           </p>
         </div>
       </div>
@@ -828,7 +828,7 @@ function MarketingShareModal({
 
 // ─── Main RecommenderTab Component ───────────────────────────────
 export function RecommenderTab() {
-  const { user, recommenderProducts, token, setRecommenderProducts, setCurrentView } = useAppStore()
+  const { user, recommenderProducts, token, ppcRate, setRecommenderProducts, setCurrentView } = useAppStore()
   const [isLoading, setIsLoading] = useState(true)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [localCommissions, setLocalCommissions] = useState<Record<string, number>>({})

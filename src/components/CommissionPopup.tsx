@@ -299,7 +299,7 @@ export default function CommissionPopup({
                     <p className="text-xl font-black text-emerald-400 leading-none">
                       <AnimatedPrice value={commissionAmount} />
                     </p>
-                    <p className="text-[9px] text-white/30 mt-1">+ 5 FCFA par clic sur votre lien</p>
+                    <p className="text-[9px] text-white/30 mt-1">+ {ppcRate} FCFA par clic sur votre lien</p>
                   </div>
                 </div>
               </motion.div>

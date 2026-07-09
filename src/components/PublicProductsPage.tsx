@@ -420,6 +420,8 @@ export default function PublicProductsPage() {
     clearPendingAction,
   } = useAppStore()
 
+  const globalPpcRate = useAppStore((state) => state.ppcRate)
+
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
@@ -427,35 +429,7 @@ export default function PublicProductsPage() {
   const [activeTab, setActiveTab] = useState<'kidenzo' | 'neolife'>('kidenzo')
 
   // ── Scroll-based UI liberation ──
-  const [isScrolled, setIsScrolled] = useState(false)
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false)
-  const lastScrollY = useRef(0)
-
-  useEffect(() => {
-    // Determine the scroll container
-    // When embedded in DashboardLayout, it's the element with id="main-scroll-container"
-    // Otherwise fallback to window (for example in standalone testing)
-    const scrollContainer = document.getElementById('main-scroll-container') || window
-
-    const handleScroll = (e: Event) => {
-      // Get the scroll position depending on the container type
-      const currentScrollY =
-        scrollContainer === window
-          ? window.scrollY
-          : (e.target as HTMLElement).scrollTop
-
-      if (currentScrollY > 60) {
-        setIsScrolled(true)
-      } else {
-        setIsScrolled(false)
-        setIsCategoryMenuOpen(false)
-      }
-      lastScrollY.current = currentScrollY
-    }
-
-    scrollContainer.addEventListener('scroll', handleScroll, { passive: true })
-    return () => scrollContainer.removeEventListener('scroll', handleScroll)
-  }, [])
 
   // Close category dropdown when clicking outside
   useEffect(() => {
@@ -816,29 +790,14 @@ export default function PublicProductsPage() {
       <div className="sticky top-0 z-40 w-full">
 
         {/* ── Row 1: Search bar + burger on scroll ── */}
-        <motion.div
-          className="w-full bg-[#0a0118]/92 backdrop-blur-xl border-b border-white/5 px-4 overflow-visible"
-          animate={{
-            paddingTop: isScrolled ? 8 : 16,
-            paddingBottom: isScrolled ? 8 : 16,
-          }}
-          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        <div
+          className="w-full bg-[#0a0118]/92 backdrop-blur-xl border-b border-white/5 px-4 overflow-visible py-2"
         >
           <div className="max-w-6xl mx-auto">
             {/* Search row */}
             <div className="flex items-center gap-2">
-              {/* Burger — slides in from left on scroll */}
-              <AnimatePresence>
-                {isScrolled && (
-                  <motion.div
-                    key="burger"
-                    initial={{ opacity: 0, width: 0, marginRight: 0 }}
-                    animate={{ opacity: 1, width: 40, marginRight: 0 }}
-                    exit={{ opacity: 0, width: 0, marginRight: 0 }}
-                    transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                    className="relative shrink-0 overflow-visible"
-                    style={{ minWidth: isScrolled ? 40 : 0 }}
-                  >
+              {/* Burger — permanently visible */}
+              <div className="relative shrink-0 overflow-visible" style={{ minWidth: 40 }}>
                     <motion.button
                       onClick={(e) => { e.stopPropagation(); setIsCategoryMenuOpen(prev => !prev) }}
                       whileTap={{ scale: 0.9 }}
@@ -894,73 +853,32 @@ export default function PublicProductsPage() {
                         </motion.div>
                       )}
                     </AnimatePresence>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  </div>
 
               {/* Search input */}
               <div className="relative flex-1">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
-                <motion.div
-                  animate={{ height: isScrolled ? 38 : 44 }}
-                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                >
+                <div className="h-9">
                   <Input
                     placeholder="Rechercher un produit..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10 h-full bg-white/5 border-white/10 text-white placeholder:text-white/20 focus-visible:border-orange-400/50 rounded-xl"
                   />
-                </motion.div>
+                </div>
               </div>
             </div>
-
-            {/* Category pills — collapse on scroll */}
-            <motion.div
-              animate={{
-                height: isScrolled ? 0 : 'auto',
-                opacity: isScrolled ? 0 : 1,
-                marginTop: isScrolled ? 0 : 10,
-              }}
-              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-              className="overflow-hidden"
-            >
-              <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
-                {CATEGORIES.map((cat) => (
-                  <button
-                    key={cat.value}
-                    onClick={() => setSelectedCategory(cat.value)}
-                    className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-medium transition-all ${
-                      selectedCategory === cat.value
-                        ? 'bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-lg shadow-orange-500/20'
-                        : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70 border border-white/10'
-                    }`}
-                  >
-                    {cat.label}
-                  </button>
-                ))}
-              </div>
-            </motion.div>
           </div>
-        </motion.div>
+        </div>
 
-        {/* ── Row 2: Kidenzo / Neolife tabs (always visible, compresses on scroll) ── */}
-        <motion.div
-          className="w-full bg-[#0a0118]/88 backdrop-blur-xl border-b border-white/5 shadow-lg shadow-black/10"
-          animate={{
-            paddingTop: isScrolled ? 5 : 14,
-            paddingBottom: isScrolled ? 5 : 14,
-            paddingLeft: 12,
-            paddingRight: 12,
-          }}
-          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        >
+        {/* ── Row 2: Kidenzo / Neolife tabs (always visible) ── */}
+        <div className="w-full bg-[#0a0118]/88 backdrop-blur-xl border-b border-white/5 shadow-lg shadow-black/10 py-1 px-4">
           <div className="flex max-w-md mx-auto p-1 bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
             {/* Kidenzo */}
             <button
               onClick={() => setActiveTab('kidenzo')}
               className="relative flex-1 flex items-center justify-center gap-2 rounded-xl overflow-hidden transition-colors"
-              style={{ minHeight: isScrolled ? 34 : 46 }}
+              style={{ minHeight: 34 }}
             >
               <AnimatePresence initial={false}>
                 {activeTab === 'kidenzo' && (
@@ -973,14 +891,10 @@ export default function PublicProductsPage() {
                 )}
               </AnimatePresence>
               <span className="relative z-10 flex items-center gap-1.5">
-                <Package className={`transition-all duration-300 ${isScrolled ? 'w-3.5 h-3.5' : 'w-4.5 h-4.5'} ${activeTab === 'kidenzo' ? 'text-white' : 'text-orange-400'}`} />
-                <motion.span
-                  animate={{ fontSize: isScrolled ? '11px' : '13px' }}
-                  transition={{ duration: 0.3 }}
-                  className={`font-bold ${activeTab === 'kidenzo' ? 'text-white' : 'text-white/50'}`}
-                >
-                  {isScrolled ? 'Kidenzo' : 'Produits Kidenzo'}
-                </motion.span>
+                <Package className={`transition-all duration-300 w-3.5 h-3.5 ${activeTab === 'kidenzo' ? 'text-white' : 'text-orange-400'}`} />
+                <span className={`font-bold text-[11px] ${activeTab === 'kidenzo' ? 'text-white' : 'text-white/50'}`}>
+                  Kidenzo
+                </span>
               </span>
             </button>
 
@@ -988,7 +902,7 @@ export default function PublicProductsPage() {
             <button
               onClick={() => setActiveTab('neolife')}
               className="relative flex-1 flex items-center justify-center gap-2 rounded-xl overflow-hidden transition-colors"
-              style={{ minHeight: isScrolled ? 34 : 46 }}
+              style={{ minHeight: 34 }}
             >
               <AnimatePresence initial={false}>
                 {activeTab === 'neolife' && (
@@ -1009,7 +923,7 @@ export default function PublicProductsPage() {
               </span>
             </button>
           </div>
-        </motion.div>
+        </div>
 
       </div>{/* end sticky wrapper */}
 
@@ -1130,100 +1044,57 @@ export default function PublicProductsPage() {
                         <h3 className="font-bold text-white text-base leading-snug line-clamp-1 group-hover/clickable:text-orange-400 transition-colors">
                           {product.name}
                         </h3>
-                      <p className="text-white/30 text-xs mt-1 line-clamp-2 leading-relaxed">
-                        {product.description}
-                      </p>
                       </div>
 
                     {/* Price & Rewards */}
-                    <div className="flex items-end justify-between px-5 pb-5">
-                      <span className="text-2xl font-black gradient-text-warm">
-                        {formatPrice(product.basePrice)}
-                      </span>
-                      <div className="flex flex-col items-end gap-1.5">
-                        {(product.recommenderMaxCommission ?? product.maxCommission) > 0 && (
-                          <span className="text-[10px] text-emerald-400/90 bg-emerald-500/10 px-2.5 py-0.5 rounded-lg flex items-center justify-center gap-1 border border-emerald-500/20">
-                            Jusqu&apos;à {product.recommenderMaxCommission ?? product.maxCommission}% de com.
-                          </span>
-                        )}
-                        <span className="text-[10px] text-orange-400/90 bg-orange-500/10 px-2.5 py-0.5 rounded-lg flex items-center justify-center gap-1 border border-orange-500/20">
-                          <Zap className="w-3 h-3" />
-                          Gain : 5 FCFA / clic
+                    <div className="flex flex-col gap-2 px-5 pb-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-lg font-black gradient-text-warm">
+                          {formatPrice(product.basePrice)}
                         </span>
+                        
+                        <div className="flex flex-col items-end gap-1.5 mt-1">
+                          <div className="flex items-center gap-1.5">
+                            {(product.recommenderMaxCommission ?? product.maxCommission) > 0 && (
+                              <span className="text-[10px] text-emerald-400 font-medium bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                                Gain max : {formatPrice(Math.floor(product.basePrice * (product.recommenderMaxCommission ?? product.maxCommission) / 100))} /vente
+                              </span>
+                            )}
+                            <span className="text-[10px] text-orange-400 font-medium bg-orange-500/10 px-2 py-0.5 rounded-md border border-orange-500/20 flex items-center gap-1">
+                              <Zap className="w-3 h-3" />
+                              {globalPpcRate}F/clic
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
 
                     {/* ── TWO MAIN BUTTONS ── */}
-                    <div className="border-t border-white/5 pt-3 px-5 pb-5 space-y-2.5">
+                    <div className="border-t border-white/5 p-3 flex gap-2">
                       {/* Commander - Primary CTA for customers */}
-                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex-[0.8]">
                         <Button
                           size="sm"
                           onClick={() => handleOrderClick(product)}
-                          className="w-full h-10 bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 text-white text-sm font-semibold shadow-lg shadow-orange-500/20 relative overflow-hidden group"
+                          className="w-full h-10 bg-white/10 hover:bg-white/15 text-white text-[11px] font-semibold rounded-xl border border-white/5"
                         >
-                          <motion.div
-                            className="absolute inset-0 bg-gradient-to-r from-orange-400 via-pink-400 to-purple-400"
-                            animate={{ opacity: [0, 0.3, 0] }}
-                            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                            style={{ filter: 'blur(15px)' }}
-                          />
-                          <span className="relative flex items-center justify-center gap-2">
-                            <ShoppingCart className="w-4 h-4" />
-                            Commander
-                            <span className="text-[10px] opacity-60">· {formatPrice(product.basePrice)}</span>
-                          </span>
+                          <ShoppingCart className="w-4 h-4 mr-1.5" />
+                          Acheter
                         </Button>
                       </motion.div>
 
                       {/* Recommander & Gagner - Opens commission popup */}
-                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex-[1.2]">
                         <Button
                           size="sm"
                           onClick={() => handleRecommendClick(product)}
-                          className="w-full h-10 border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-sm font-semibold transition-all relative overflow-hidden"
+                          className="w-full h-10 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white text-[11px] font-semibold rounded-xl shadow-lg shadow-emerald-500/20"
                         >
-                          <motion.div
-                            className="absolute inset-0 bg-gradient-to-r from-emerald-400/10 via-transparent to-emerald-400/10"
-                            animate={{ opacity: [0, 0.5, 0] }}
-                            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-                          />
-                          <span className="relative flex items-center justify-center gap-2">
-                            <Share2 className="w-4 h-4" />
-                            Recommander & Gagner
-                            <TrendingUp className="w-3.5 h-3.5 ml-0.5 text-emerald-400/60" />
-                          </span>
+                          <Share2 className="w-4 h-4 mr-1.5" />
+                          Partager & Gagner
                         </Button>
                       </motion.div>
-
-                      {/* Quick copy link for mini-site */}
-                      {product.miniSite && (
-                        <div className="flex items-center gap-2 pt-1">
-                          <button
-                            onClick={() => handleCopyLink(product.miniSite!.slug)}
-                            className="flex-1 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/30 text-[10px] hover:bg-white/[0.06] hover:text-white/50 transition-colors"
-                          >
-                            {copySuccess === product.miniSite.slug ? (
-                              <>
-                                <Check className="w-3 h-3 text-emerald-400" />
-                                <span className="text-emerald-400">Copié !</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3 h-3" />
-                                Copier le lien
-                              </>
-                            )}
-                          </button>
-                          <button
-                            onClick={() => window.open(`/s/${product.miniSite!.slug}`, '_blank')}
-                            className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/30 hover:bg-white/[0.06] hover:text-white/50 transition-colors"
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                          </button>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </motion.div>

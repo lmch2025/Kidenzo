@@ -395,6 +395,7 @@ interface AppState {
   rewards: RewardData[]
   clickStats: ClickStats | null
   ppcConfig: PPCConfig | null
+  ppcRate: number
 
   // UI
   isLoading: boolean
@@ -437,6 +438,7 @@ interface AppState {
   setRewards: (rewards: RewardData[]) => void
   setClickStats: (stats: ClickStats | null) => void
   setPPCConfig: (config: PPCConfig | null) => void
+  setPpcRate: (rate: number) => void
   setLoading: (loading: boolean) => void
   addXPNotification: (amount: number, reason: string) => void
   removeXPNotification: (id: string) => void
@@ -448,6 +450,7 @@ interface AppState {
   updateUserSpins: (spinsToday: number, lastSpinAt: string) => void
   updateUserRole: (role: UserRole) => void
   setDataLoaded: (loaded: boolean) => void
+  refreshUserFromDB: (token: string) => Promise<User | null>
   preloadUserData: (user: User, token: string) => Promise<void>
 
   // Wallet Actions
@@ -490,6 +493,7 @@ export const useAppStore = create<AppState>()(
   rewards: [],
   clickStats: null,
   ppcConfig: null,
+  ppcRate: 5,
 
   // UI
   isLoading: false,
@@ -597,6 +601,8 @@ export const useAppStore = create<AppState>()(
 
   setPPCConfig: (config) => set({ ppcConfig: config }),
 
+  setPpcRate: (rate) => set({ ppcRate: rate }),
+
   setLoading: (loading) => set({ isLoading: loading }),
 
   addXPNotification: (amount, reason) => {
@@ -659,34 +665,95 @@ export const useAppStore = create<AppState>()(
   
   setShowCreateOrderModal: (show) => set({ showCreateOrderModal: show }),
 
+  // ─── Re-fetch user from DB to get fresh role/data ─────────────────────
+  // Critical for users whose role was changed by an admin after their last login
+  refreshUserFromDB: async (token) => {
+    try {
+      const res = await fetch(`/api/user?token=${token}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        const freshUser: User = data.user
+        if (freshUser) {
+          set((state) => ({
+            user: state.user ? { ...state.user, ...freshUser } : freshUser,
+          }))
+          return freshUser
+        }
+      }
+    } catch (error) {
+      console.error('Failed to refresh user from DB:', error)
+    }
+    return null
+  },
+
   preloadUserData: async (user, token) => {
     try {
-      const ordersParam = user.role === 'recommender' ? `recommenderId=${user.id}` : `ownerId=${user.id}`
+      const isAdminNeolife = user.role === 'admin_neolife'
+      const isOwnerOrAdmin = user.role === 'owner' || isAdminNeolife
+      const isRecommender = user.role === 'recommender'
       const headers: Record<string, string> = { Authorization: `Bearer ${token}` }
       const promises: Promise<void>[] = []
 
-      // Product fetch (owners)
-      promises.push(
-        fetch(`/api/products?ownerId=${user.id}`, { headers }).then(async (res) => {
-          if (res.ok) {
-            const data = await res.json()
-            set({ products: data.products || data || [] })
-          }
-        }).catch(console.error)
-      )
+      // Product fetch: owners and admin_neolife see their products
+      // admin_neolife fetches by brand=neolife, owners fetch by ownerId
+      if (isAdminNeolife) {
+        promises.push(
+          fetch(`/api/products?brand=neolife`, { headers }).then(async (res) => {
+            if (res.ok) {
+              const data = await res.json()
+              set({ products: data.products || data || [] })
+            }
+          }).catch(console.error)
+        )
+      } else {
+        promises.push(
+          fetch(`/api/products?ownerId=${user.id}`, { headers }).then(async (res) => {
+            if (res.ok) {
+              const data = await res.json()
+              set({ products: data.products || data || [] })
+            }
+          }).catch(console.error)
+        )
+      }
 
-      // Orders fetch
-      promises.push(
-        fetch(`/api/orders?${ordersParam}`, { headers }).then(async (res) => {
-          if (res.ok) {
-            const data = await res.json()
-            set({ orders: data.orders || data || [] })
-          }
-        }).catch(console.error)
-      )
+      // Orders fetch:
+      // - recommenders: filter by recommenderId
+      // - admin_neolife: all orders (admin route, brand=neolife)
+      // - owners: filter by ownerId
+      if (isRecommender) {
+        promises.push(
+          fetch(`/api/orders?recommenderId=${user.id}`, { headers }).then(async (res) => {
+            if (res.ok) {
+              const data = await res.json()
+              set({ orders: data.orders || data || [] })
+            }
+          }).catch(console.error)
+        )
+      } else if (isAdminNeolife) {
+        // admin_neolife accesses all orders via admin API filtered by neolife brand
+        promises.push(
+          fetch(`/api/admin?action=all-orders&brand=neolife`, { headers }).then(async (res) => {
+            if (res.ok) {
+              const data = await res.json()
+              set({ orders: data.orders || [] })
+            }
+          }).catch(console.error)
+        )
+      } else {
+        promises.push(
+          fetch(`/api/orders?ownerId=${user.id}`, { headers }).then(async (res) => {
+            if (res.ok) {
+              const data = await res.json()
+              set({ orders: data.orders || data || [] })
+            }
+          }).catch(console.error)
+        )
+      }
 
       // Recommender specific
-      if (user.role === 'recommender') {
+      if (isRecommender) {
         promises.push(
           fetch(`/api/recommender?userId=${user.id}`, { headers }).then(async (res) => {
             if (res.ok) {

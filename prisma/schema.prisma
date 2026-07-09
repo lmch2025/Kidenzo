@@ -130,6 +130,8 @@ model Order {
   commissionRecommender Float  @default(0)
   commissionAmbassador  Float  @default(0)
   status              String   @default("pending") // pending, confirmed, delivered, cancelled
+  deliveryFee         Float    @default(0)
+  deliveryFeePaid     Boolean  @default(false)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
