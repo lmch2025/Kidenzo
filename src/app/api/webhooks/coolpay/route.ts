@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { coolpayService } from '@/services/coolpay';
-import prisma from '@/lib/prisma'; // Assumant que prisma est exporté depuis @/lib/prisma
+import { db } from '@/lib/db';
 
 export async function POST(req: Request) {
   try {
@@ -63,14 +63,14 @@ export async function POST(req: Request) {
 }
 
 async function handleInstallmentPayment(planId: string, amount: number) {
-  const plan = await prisma.installmentPlan.findUnique({
+  const plan = await db.installmentPlan.findUnique({
     where: { id: planId }
   });
 
   if (!plan) return;
 
   // Création du paiement
-  await prisma.installmentPayment.create({
+  await db.installmentPayment.create({
     data: {
       planId: plan.id,
       amount: amount,
@@ -83,7 +83,7 @@ async function handleInstallmentPayment(planId: string, amount: number) {
   const newPaidInstallments = plan.paidInstallments + 1;
   const newRemaining = plan.remainingAmount - amount;
   
-  await prisma.installmentPlan.update({
+  await db.installmentPlan.update({
     where: { id: plan.id },
     data: {
       paidInstallments: newPaidInstallments,
@@ -95,13 +95,13 @@ async function handleInstallmentPayment(planId: string, amount: number) {
 }
 
 async function handleSavingsDeposit(goalId: string, amount: number) {
-  const goal = await prisma.savingsGoal.findUnique({
+  const goal = await db.savingsGoal.findUnique({
     where: { id: goalId }
   });
 
   if (!goal) return;
 
-  await prisma.savingsDeposit.create({
+  await db.savingsDeposit.create({
     data: {
       goalId: goal.id,
       amount: amount,
@@ -112,7 +112,7 @@ async function handleSavingsDeposit(goalId: string, amount: number) {
 
   const newAmount = goal.currentAmount + amount;
 
-  await prisma.savingsGoal.update({
+  await db.savingsGoal.update({
     where: { id: goal.id },
     data: {
       currentAmount: newAmount,
@@ -123,7 +123,7 @@ async function handleSavingsDeposit(goalId: string, amount: number) {
 }
 
 async function handleDeliveryFeePayment(orderId: string, amount: number) {
-  await prisma.order.update({
+  await db.order.update({
     where: { id: orderId },
     data: {
       deliveryFeePaid: true,
@@ -133,7 +133,7 @@ async function handleDeliveryFeePayment(orderId: string, amount: number) {
 }
 
 async function handleCommissionPayout(withdrawalId: string) {
-  await prisma.withdrawalRequest.update({
+  await db.withdrawalRequest.update({
     where: { id: withdrawalId },
     data: {
       status: "paid",
