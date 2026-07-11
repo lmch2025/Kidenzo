@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Gamification GET error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: String(error) },
       { status: 500 }
     )
   }
@@ -294,7 +294,7 @@ async function handleGetUserData(userId: string) {
 // ─── GET: Leaderboard ──────────────────────────────────────────────────
 
 async function handleGetLeaderboard(role?: string | null) {
-  const where = role ? { role } : {}
+  const where: any = role ? { role } : {}
 
   const users = await db.user.findMany({
     where,
