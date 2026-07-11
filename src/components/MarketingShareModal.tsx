@@ -29,6 +29,7 @@ export default function MarketingShareModal({
   product,
   commissionPct,
   shareLink,
+  ppcRate,
 }: {
   open: boolean
   onClose: () => void
