@@ -35,6 +35,7 @@ export default function MarketingShareModal({
   product: { name: string; basePrice: number; imageUrl?: string; videoUrl?: string; description?: string; category?: string } | null
   commissionPct: number
   shareLink: string
+  ppcRate?: number
 }) {
   const [copied, setCopied] = useState<string | null>(null)
   const [imageLoading, setImageLoading] = useState(false)
@@ -229,7 +230,7 @@ export default function MarketingShareModal({
             Outils Marketing
           </SheetTitle>
           <SheetDescription className="text-white/50">
-            Partagez <strong className="text-white/70">{product.name}</strong> et gagnez {formatPrice(product.basePrice * commissionPct / 100)} par vente + {ppcRate} FCFA/clic
+            Partagez <strong className="text-white/70">{product.name}</strong> et gagnez {formatPrice(product.basePrice * commissionPct / 100)} par vente{ppcRate ? ` + ${ppcRate} FCFA/clic` : ''}
           </SheetDescription>
         </SheetHeader>
 

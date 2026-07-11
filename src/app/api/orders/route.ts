@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const recommenderId = searchParams.get('recommenderId')
     const ownerId = searchParams.get('ownerId')
 
-    const where: Record<string, unknown> = {}
+    const where: any = {}
 
     if (recommenderId) {
       where.recommenderId = recommenderId
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Orders GET error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: String(error) },
       { status: 500 }
     )
   }
