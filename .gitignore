@@ -55,6 +55,6 @@ server.log
 # Temp/build artifacts
 tool-results/
 agent-ctx/
-upload/
+/upload/
 *.png
 !public/*.png
