@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { motion, AnimatePresence, useSpring, useMotionValue, useTransform } from 'framer-motion'
 import { Package, TrendingUp, Share2, Loader2, X } from 'lucide-react'
-import { formatPrice } from '@/lib/store'
+import { formatPrice, useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 
@@ -48,6 +48,7 @@ export default function CommissionPopup({
   initialCommission?: number | null
 }) {
   const [commission, setCommission] = useState(initialCommission ?? 10)
+  const ppcRate = useAppStore((state) => state.ppcRate)
   const [hasInteracted, setHasInteracted] = useState(false)
 
   // Reset commission when product changes
