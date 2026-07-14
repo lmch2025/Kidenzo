@@ -96,22 +96,26 @@ export default function MarketingShareModal({
   const marketingMessages = useMemo(() => {
     if (!product) return []
     const mediaNote = product.videoUrl ? " 🎥 Vidéo jointe" : product.imageUrl ? " 📸 Image jointe" : ''
+    
+    // Dual CTAs for maximum conversion
+    const ctas = `\n\n🛍️ Pour commander : ${shareLink}\n▶️ Voir la vidéo démo : ${shareLink}#demo`
+
     return [
       {
         label: '🔥 Offre flash',
-        message: `🔥 OFFRE EXCLUSIVE ! ${product.name} à seulement ${formatPrice(finalPrice)} ! Commandez maintenant, stock limité !${mediaNote} 👉 ${shareLink}`,
+        message: `🔥 OFFRE EXCLUSIVE ! ${product.name} à seulement ${formatPrice(finalPrice)} ! Commandez maintenant, stock limité !${mediaNote}${ctas}`,
       },
       {
         label: '💯 Recommandation',
-        message: `💯 J'ai trouvé ce produit incroyable : ${product.name} à ${formatPrice(finalPrice)}. Qualité garantie !${mediaNote} 👉 ${shareLink}`,
+        message: `💯 J'ai trouvé ce produit incroyable : ${product.name} à ${formatPrice(finalPrice)}. Qualité garantie !${mediaNote}${ctas}`,
       },
       {
         label: '⏰ Urgence',
-        message: `⏰ Dernière chance ! ${product.name} à ${formatPrice(finalPrice)}. Ne ratez pas cette offre !${mediaNote} 👉 ${shareLink}`,
+        message: `⏰ Dernière chance ! ${product.name} à ${formatPrice(finalPrice)}. Ne ratez pas cette offre !${mediaNote}${ctas}`,
       },
       {
         label: '🎁 Cadeau',
-        message: `🎁 Offrez-vous ${product.name} ! Seulement ${formatPrice(finalPrice)}. Livraison rapide !${mediaNote} 👉 ${shareLink}`,
+        message: `🎁 Offrez-vous ${product.name} ! Seulement ${formatPrice(finalPrice)}. Livraison rapide !${mediaNote}${ctas}`,
       },
     ]
   }, [product, finalPrice, shareLink])
@@ -141,7 +145,7 @@ export default function MarketingShareModal({
 
   const shareToTwitter = () => {
     if (!product) return
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Découvrez ${product.name} à ${formatPrice(finalPrice)} !`)}&url=${encodeURIComponent(shareLink)}`, '_blank')
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Découvrez ${product.name} à ${formatPrice(finalPrice)} !\n\n🛍️ Pour commander : ${shareLink}\n▶️ Voir la vidéo démo : ${shareLink}#demo`)}`, '_blank')
   }
 
   // Native share with media file attached
@@ -151,30 +155,25 @@ export default function MarketingShareModal({
 
     let blob: Blob | null = null
     let fileName = 'media.png'
-    const isVideo = !!product.videoUrl
 
     try {
       // Fetch media through proxy to avoid CORS issues
-      const targetUrl = isVideo ? product.videoUrl : product.imageUrl
-      const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(targetUrl!)}`
+      const targetUrl = product.imageUrl!
+      const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(targetUrl)}`
       const res = await fetch(proxyUrl)
       if (!res.ok) throw new Error('Failed to fetch media')
 
       blob = await res.blob()
       // Determine file extension from content type
-      const contentType = res.headers.get('Content-Type') || (isVideo ? 'video/mp4' : 'image/png')
-      let ext = 'png'
-      if (isVideo) {
-        ext = contentType.includes('webm') ? 'webm' : contentType.includes('ogg') ? 'ogg' : 'mp4'
-      } else {
-        ext = contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : contentType.includes('webp') ? 'webp' : 'png'
-      }
+      const contentType = res.headers.get('Content-Type') || 'image/png'
+      const ext = contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : contentType.includes('webp') ? 'webp' : 'png'
+      
       fileName = `${product.name.replace(/[^a-zA-Z0-9]/g, '_')}.${ext}`
       const mediaFile = new File([blob], fileName, { type: contentType })
 
       const shareData = {
         title: product.name,
-        text: `Découvrez ${product.name} à ${formatPrice(finalPrice)} ! Commandez maintenant 👉`,
+        text: `Découvrez ${product.name} à ${formatPrice(finalPrice)} !\n\n🛍️ Pour commander : ${shareLink}\n▶️ Voir la vidéo démo : ${shareLink}#demo`,
         url: shareLink,
         files: [mediaFile],
       }
@@ -197,7 +196,7 @@ export default function MarketingShareModal({
       // Fallback: copy text and download media
       try {
         if (blob) {
-          await copyToClipboard(`Découvrez ${product.name} à ${formatPrice(finalPrice)} ! ${isVideo ? '🎥' : '📸'} Voir le fichier joint\n👉 ${shareLink}`, 'fallback-share')
+          await copyToClipboard(`Découvrez ${product.name} à ${formatPrice(finalPrice)} ! 📸 Voir l'image jointe\n👉 ${shareLink}`, 'fallback-share')
           
           const url = URL.createObjectURL(blob)
           const a = document.createElement('a')
@@ -297,7 +296,7 @@ export default function MarketingShareModal({
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      onClick={() => copyToClipboard(`${aiText} 👉 ${shareLink}`, 'ai')}
+                      onClick={() => copyToClipboard(`${aiText}\n\n🛍️ Pour commander : ${shareLink}\n▶️ Voir la vidéo démo : ${shareLink}#demo`, 'ai')}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-orange-500/20 to-pink-500/20 border border-orange-500/20 hover:border-orange-500/40 transition-colors"
                     >
                       {copied === 'ai' ? (
@@ -312,7 +311,7 @@ export default function MarketingShareModal({
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      onClick={() => shareToWhatsApp(`${aiText} 👉 ${shareLink}`)}
+                      onClick={() => shareToWhatsApp(`${aiText}\n\n🛍️ Pour commander : ${shareLink}\n▶️ Voir la vidéo démo : ${shareLink}#demo`)}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/15 hover:border-emerald-500/30 transition-colors"
                     >
                       <MessageSquare className="w-3 h-3 text-emerald-400" />
@@ -357,7 +356,7 @@ export default function MarketingShareModal({
                   <p className="text-xs text-white/40 mt-0.5">Prix client : {formatPrice(finalPrice)}</p>
                   <div className="flex items-center gap-1.5 mt-1">
                     <ImageIcon className="w-3 h-3 text-emerald-400" />
-                    <span className="text-[10px] text-emerald-400/70">{product.videoUrl ? 'Vidéo' : 'Image'} jointe au partage</span>
+                    <span className="text-[10px] text-emerald-400/70">Image jointe au partage</span>
                   </div>
                 </div>
               </div>
@@ -384,7 +383,7 @@ export default function MarketingShareModal({
                   ) : (
                     <Download className="w-4 h-4" />
                   )}
-                  {imageLoading ? "Chargement en cours..." : `Partager avec ${product.videoUrl ? 'la vidéo' : "l'image"}`}
+                  {imageLoading ? "Chargement en cours..." : "Partager avec l'image"}
                 </span>
               </Button>
             </motion.div>

@@ -49,7 +49,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Slider } from '@/components/ui/slider'
 import { Skeleton } from '@/components/ui/skeleton'
 import MiniSiteView from './MiniSiteView'
-import CommissionPopup from './CommissionPopup'
+
 import MarketingShareModal from './MarketingShareModal'
 import {
   Sheet,
@@ -575,18 +575,51 @@ export default function PublicProductsPage() {
     return filtered
   }, [publicProducts, selectedCategory, searchQuery, activeTab])
 
-  // Handle "Recommander & Gagner" click → toggle inline slider
+  // Handle "Recommander & Gagner" click → instantly show share modal
   const handleRecommendClick = (product: typeof publicProducts[0]) => {
-    setCommissionPopupProduct({
-      id: product.id,
+    const maxComm = product.recommenderMaxCommission ?? product.maxCommission
+    if (!product.miniSite) return
+
+    if (!isAuthenticated) {
+      setPendingAction({
+        productId: product.id,
+        miniSiteId: product.miniSite.id,
+        commissionPct: maxComm,
+        timestamp: Date.now(),
+      })
+      setShowAuthModal(true, 'Connectez-vous pour partager votre lien de recommandation et commencer à gagner')
+      return
+    }
+
+    const link = `${window.location.origin}/s/${product.miniSite.slug}?ref=${user?.id}`
+    setShareModalProduct({
       name: product.name,
       basePrice: product.basePrice,
-      maxCommission: product.recommenderMaxCommission ?? product.maxCommission,
-      description: product.description,
       imageUrl: product.images && product.images.length > 0 ? product.images[0].storageUrl : undefined,
-      miniSite: product.miniSite,
+      videoUrl: product.videoUrl || undefined,
+      description: product.description,
+      category: product.category,
     })
-    setCommissionPopupOpen(true)
+    setShareModalLink(link)
+    setShareModalCommission(maxComm)
+    setShareModalOpen(true)
+
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (token) headers['Authorization'] = `Bearer ${token}`
+
+      fetch('/api/recommender', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          userId: user?.id,
+          miniSiteId: product.miniSite.id,
+          commissionPct: maxComm,
+        }),
+      }).catch(console.error)
+    } catch (error) {
+      console.error('Failed to save commission async:', error)
+    }
   }
 
   // ── Auto-resume pending action after authentication ──
@@ -600,111 +633,44 @@ export default function PublicProductsPage() {
       clearPendingAction()
 
       const product = publicProducts.find(p => p.id === productId)
-      if (!product) return
+      if (!product || !product.miniSite) return
 
-      setSavingCommission(productId)
-      try {
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-        if (token) headers['Authorization'] = `Bearer ${token}`
-
-        // Save commission
-        await fetch('/api/recommender', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            userId: user.id,
-            miniSiteId,
-            commissionPct,
-          }),
-        })
-
-        // Build share link
-        const slug = product.miniSite?.slug
-        if (slug) {
-          const link = `${window.location.origin}/s/${slug}?ref=${user.id}`
-          setShareModalProduct({
-            name: product.name,
-            basePrice: product.basePrice,
-            imageUrl: product.images && product.images.length > 0 ? product.images[0].storageUrl : undefined,
-            videoUrl: product.videoUrl || undefined,
-            description: product.description,
-            category: product.category,
-          })
-          setShareModalLink(link)
-          setShareModalCommission(commissionPct)
-          setShareModalOpen(true)
-        }
-      } catch (error) {
-        console.error('Failed to save commission:', error)
-      } finally {
-        setSavingCommission(null)
-      }
-    }
-
-    // Small delay to allow UI to settle after auth
-    const timer = setTimeout(resumeAction, 300)
-    return () => clearTimeout(timer)
-  }, [isAuthenticated, user, pendingAction, token, publicProducts, clearPendingAction])
-
-  // Handle share from commission popup → save commission + show marketing tools
-  const handleShareFromPopup = async (productId: string, miniSiteId: string, commissionPct: number) => {
-    // If not authenticated, save the pending action and show auth modal
-    if (!isAuthenticated) {
-      // Persist the action context so we can resume after auth
-      setPendingAction({
-        productId,
-        miniSiteId,
-        commissionPct,
-        timestamp: Date.now(),
+      // Build share link instantly
+      const slug = product.miniSite.slug
+      const link = `${window.location.origin}/s/${slug}?ref=${user.id}`
+      setShareModalProduct({
+        name: product.name,
+        basePrice: product.basePrice,
+        imageUrl: product.images && product.images.length > 0 ? product.images[0].storageUrl : undefined,
+        videoUrl: product.videoUrl || undefined,
+        description: product.description,
+        category: product.category,
       })
-      // Close popup and show auth
-      setCommissionPopupOpen(false)
-      setShowAuthModal(true, 'Connectez-vous pour partager votre lien de recommandation et commencer à gagner')
-      return
-    }
+      setShareModalLink(link)
+      setShareModalCommission(commissionPct)
+      setShareModalOpen(true)
 
-    setSavingCommission(productId)
-    try {
+      // Fire API call in the background
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (token) headers['Authorization'] = `Bearer ${token}`
 
-      // Save commission
-      await fetch('/api/recommender', {
+      fetch('/api/recommender', {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          userId: user?.id,
+          userId: user.id,
           miniSiteId,
           commissionPct,
         }),
-      })
-
-      // Build share link
-      const product = publicProducts.find(p => p.id === productId)
-      const slug = product?.miniSite?.slug
-      if (slug && user) {
-        const link = `${window.location.origin}/s/${slug}?ref=${user.id}`
-        setShareModalProduct({
-          name: product.name,
-          basePrice: product.basePrice,
-          imageUrl: product.images && product.images.length > 0 ? product.images[0].storageUrl : undefined,
-          videoUrl: product.videoUrl || undefined,
-          description: product.description,
-          category: product.category,
-        })
-        setShareModalLink(link)
-        setShareModalCommission(commissionPct)
-        // Close commission popup and open marketing tools
-        setCommissionPopupOpen(false)
-        setShareModalOpen(true)
-        setPendingCommission(null)
-      }
-    } catch (error) {
-      console.error('Failed to save commission:', error)
-    } finally {
-      setSavingCommission(null)
+      }).catch(console.error)
     }
-  }
+
+    // Small delay to allow UI to settle after auth
+    const timer = setTimeout(resumeAction, 100)
+    return () => clearTimeout(timer)
+  }, [isAuthenticated, user, pendingAction, token, publicProducts, clearPendingAction])
+
+
 
   // Handle "Commander" click → direct order at base price
   const handleOrderClick = (product: typeof publicProducts[0]) => {
@@ -1242,15 +1208,7 @@ export default function PublicProductsPage() {
         </div>
       </footer>
 
-      {/* ── Commission Popup ── */}
-      <CommissionPopup
-        open={commissionPopupOpen}
-        onClose={() => setCommissionPopupOpen(false)}
-        product={commissionPopupProduct}
-        onShare={handleShareFromPopup}
-        isSaving={savingCommission === commissionPopupProduct?.id}
-        initialCommission={pendingCommission}
-      />
+
 
       {/* ── Direct Order Sheet ── */}
       <DirectOrderSheet

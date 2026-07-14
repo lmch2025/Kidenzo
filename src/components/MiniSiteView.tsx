@@ -64,7 +64,6 @@ import {
 } from '@/components/ui/sheet'
 import { useAppStore, formatPrice } from '@/lib/store'
 import { Slider } from '@/components/ui/slider'
-import CommissionPopup from './CommissionPopup'
 import MarketingShareModal from './MarketingShareModal'
 import AuthScreen from '@/components/AuthScreen'
 import VerifiedReviews from './VerifiedReviews'
@@ -185,6 +184,7 @@ function TrustBadge({ icon: Icon, label, desc }: { icon: React.ElementType; labe
 
 // ─── PRODUCT VIDEO ───
 function ProductVideo({ youtubeUrl, thumbnailUrl }: { youtubeUrl: string, thumbnailUrl?: string | null }) {
+  const [isPlaying, setIsPlaying] = useState(false)
   const [videoLoaded, setVideoLoaded] = useState(false)
 
   if (!youtubeUrl) return null
@@ -201,33 +201,68 @@ function ProductVideo({ youtubeUrl, thumbnailUrl }: { youtubeUrl: string, thumbn
 
   if (!videoId) return null
 
-  const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=1&rel=0&modestbranding=1`
+  const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&loop=1&playlist=${videoId}&controls=1&rel=0&modestbranding=1`
 
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-semibold text-white/60 uppercase tracking-wider flex items-center gap-2">
         <Youtube className="w-4 h-4 text-orange-400/60" />
-        Vidéo du produit
+        Démo en vidéo
       </h3>
-      <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-orange-500/10 border border-white/10 aspect-video bg-black/50">
-        {/* Thumbnail visible until video loads */}
-        {thumbnailUrl && (
-          <div className={`absolute inset-0 z-10 transition-opacity duration-700 ease-in-out ${videoLoaded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-            <Image src={thumbnailUrl} alt="Video thumbnail" fill sizes="100vw" className="object-contain bg-black/10" />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-               <div className="w-10 h-10 rounded-full border-4 border-white/30 border-t-white animate-spin" />
+      
+      {!isPlaying ? (
+        <motion.div 
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => setIsPlaying(true)}
+          className="relative rounded-2xl overflow-hidden shadow-2xl shadow-orange-500/20 border border-white/10 aspect-video sm:aspect-[4/3] bg-[#0a0118] cursor-pointer group"
+        >
+          {thumbnailUrl && (
+            <Image src={thumbnailUrl} alt="Video thumbnail" fill sizes="(max-width: 768px) 100vw, 500px" className="object-cover opacity-60 group-hover:opacity-40 transition-opacity duration-500" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10 flex flex-col items-center justify-center p-4">
+            
+            {/* Play Button Animation */}
+            <div className="relative mb-4">
+              <motion.div
+                animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                className="absolute inset-0 bg-orange-500 rounded-full blur-xl"
+              />
+              <div className="relative w-16 h-16 rounded-full bg-gradient-to-tr from-orange-500 to-pink-500 flex items-center justify-center shadow-lg shadow-orange-500/50 border border-white/20 group-hover:scale-110 transition-transform duration-300">
+                <PlayCircle className="w-8 h-8 text-white ml-1" />
+              </div>
+            </div>
+
+            <h4 className="text-white font-bold text-lg sm:text-xl text-center mb-1 drop-shadow-md">
+              Voir le produit en action
+            </h4>
+            <p className="text-orange-300 text-xs sm:text-sm text-center font-medium mb-4 drop-shadow-sm">
+              Découvrez comment ça marche en 1 clic
+            </p>
+
+            <div className="px-5 py-3 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 text-white text-sm font-bold flex items-center gap-2 group-hover:bg-white/20 transition-colors shadow-lg shadow-black/20">
+              👉 Regarder la vidéo maintenant
             </div>
           </div>
-        )}
-        <iframe
-          src={embedUrl}
-          className="w-full h-full absolute inset-0 z-0"
-          frameBorder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-          onLoad={() => setVideoLoaded(true)}
-        ></iframe>
-      </div>
+        </motion.div>
+      ) : (
+        <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-orange-500/10 border border-white/10 aspect-video bg-black">
+          {!videoLoaded && (
+             <div className="absolute inset-0 flex items-center justify-center bg-black">
+                <div className="w-10 h-10 rounded-full border-4 border-white/30 border-t-white animate-spin" />
+             </div>
+          )}
+          <iframe
+            src={embedUrl}
+            className={`w-full h-full absolute inset-0 z-10 transition-opacity duration-500 ${videoLoaded ? 'opacity-100' : 'opacity-0'}`}
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            onLoad={() => setVideoLoaded(true)}
+          ></iframe>
+        </div>
+      )}
     </div>
   )
 }
@@ -664,8 +699,6 @@ export default function MiniSiteView({ slug, onClose }: MiniSiteViewProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [orderSheetOpen, setOrderSheetOpen] = useState(false)
-  const [commissionPopupOpen, setCommissionPopupOpen] = useState(false)
-  const [pendingCommission, setPendingCommission] = useState<number | null>(null)
   const [shareModalOpen, setShareModalOpen] = useState(false)
   const [creditSheetOpen, setCreditSheetOpen] = useState(false)
   const [savingsSheetOpen, setSavingsSheetOpen] = useState(false)
@@ -678,7 +711,7 @@ export default function MiniSiteView({ slug, onClose }: MiniSiteViewProps) {
   const [recommendCommission, setRecommendCommission] = useState(10)
   const [shareLink, setShareLink] = useState('')
   const [shareCopied, setShareCopied] = useState(false)
-  const [isSavingCommission, setIsSavingCommission] = useState(false)
+
 
   // Scroll tracking for StickyCTA
   const heroRef = useRef<HTMLDivElement>(null)
@@ -759,91 +792,80 @@ export default function MiniSiteView({ slug, onClose }: MiniSiteViewProps) {
   useEffect(() => {
     if (!isAuthenticated || !user || !pendingAction || !miniSite) return
 
-    const resumeAction = async () => {
+    const resumeAction = () => {
       const { miniSiteId, commissionPct } = pendingAction
 
       // Ensure we are resuming for THIS mini site
       if (miniSiteId === miniSite.id) {
         clearPendingAction()
-        
-        setIsSavingCommission(true)
-        try {
-          const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-          if (token) headers['Authorization'] = `Bearer ${token}`
 
-          await fetch('/api/recommender', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              userId: user.id,
-              miniSiteId,
-              commissionPct,
-            }),
-          })
+        // Instantly open the share modal
+        const link = `${window.location.origin}/s/${miniSite.slug}?ref=${user.id}`
+        setShareModalLink(link)
+        setShareModalCommission(commissionPct)
+        setShareModalOpen(true)
 
-          const link = `${window.location.origin}/s/${miniSite.slug}?ref=${user.id}`
-          setShareModalLink(link)
-          setShareModalCommission(commissionPct)
-          setShareModalOpen(true)
-        } catch (error) {
-          console.error('Failed to save commission:', error)
-        } finally {
-          setIsSavingCommission(false)
-        }
+        // Fire API call in the background
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+        if (token) headers['Authorization'] = `Bearer ${token}`
+
+        fetch('/api/recommender', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            userId: user.id,
+            miniSiteId,
+            commissionPct,
+          }),
+        }).catch(console.error)
       }
     }
 
-    const timer = setTimeout(resumeAction, 300)
+    const timer = setTimeout(resumeAction, 100)
     return () => clearTimeout(timer)
   }, [isAuthenticated, user, pendingAction, miniSite, token, clearPendingAction])
 
-  const handleRecommendClick = () => {
+  const handleRecommendClick = async () => {
     if (!miniSite) return
-    setCommissionPopupOpen(true)
-  }
+    const maxComm = miniSite.product.maxCommission
 
-  const handleShareFromPopup = async (productId: string, miniSiteId: string, commissionPct: number) => {
     if (!isAuthenticated) {
       setPendingAction({
-        productId,
-        miniSiteId,
-        commissionPct,
+        productId: miniSite.product.id,
+        miniSiteId: miniSite.id,
+        commissionPct: maxComm,
         timestamp: Date.now(),
       })
-      setCommissionPopupOpen(false)
       setShowAuthModal(true, 'Connectez-vous pour partager votre lien de recommandation et commencer à gagner')
       return
     }
 
-    setIsSavingCommission(true)
+    // Instantly open the share modal
+    const link = `${window.location.origin}/s/${slug}?ref=${user?.id}`
+    setShareModalLink(link)
+    setShareModalCommission(maxComm)
+    setShareModalOpen(true)
+
+    // Fire API call in the background without blocking the UI
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (token) headers['Authorization'] = `Bearer ${token}`
 
-      await fetch('/api/recommender', {
+      fetch('/api/recommender', {
         method: 'POST',
         headers,
         body: JSON.stringify({
           userId: user?.id,
-          miniSiteId,
-          commissionPct,
+          miniSiteId: miniSite.id,
+          commissionPct: maxComm,
         }),
-      })
-
-      if (user) {
-        const link = `${window.location.origin}/s/${slug}?ref=${user.id}`
-        setShareModalLink(link)
-        setShareModalCommission(commissionPct)
-        setCommissionPopupOpen(false)
-        setShareModalOpen(true)
-        setPendingCommission(null)
-      }
+      }).catch(console.error)
     } catch (error) {
-      console.error('Failed to save commission:', error)
-    } finally {
-      setIsSavingCommission(false)
+      console.error('Failed to save commission async:', error)
     }
   }
+
+
 
   // Track click when visitor arrives via referral link
   useEffect(() => {
@@ -1729,7 +1751,7 @@ export default function MiniSiteView({ slug, onClose }: MiniSiteViewProps) {
                                 }
                               }
                             }}
-                            disabled={isSavingCommission}
+                            disabled={false}
                             className="w-full h-11 bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 text-white text-sm font-semibold shadow-lg shadow-orange-500/20 relative overflow-hidden"
                           >
                             <motion.div
@@ -1739,8 +1761,8 @@ export default function MiniSiteView({ slug, onClose }: MiniSiteViewProps) {
                               style={{ filter: 'blur(15px)' }}
                             />
                             <span className="relative flex items-center justify-center gap-2">
-                              {isSavingCommission ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
-                              {isSavingCommission ? 'Enregistrement...' : 'Recommander & Gagner'}
+                              <Share2 className="w-4 h-4" />
+                              Recommander & Gagner
                             </span>
                           </Button>
                         </motion.div>
@@ -1932,36 +1954,12 @@ export default function MiniSiteView({ slug, onClose }: MiniSiteViewProps) {
         </SheetContent>
       </Sheet>
 
-      {/* ── Commission Popup ── */}
-      {miniSite && (
-        <CommissionPopup
-          open={commissionPopupOpen}
-          onClose={() => setCommissionPopupOpen(false)}
-          product={{
-            id: miniSite.product.id,
-            name: miniSite.product.name,
-            basePrice: miniSite.product.basePrice,
-            maxCommission: miniSite.product.maxCommission,
-            description: miniSite.product.description,
-            imageUrl: miniSite.product.images && miniSite.product.images.length > 0 ? miniSite.product.images[0].storageUrl : undefined,
-            miniSite: { id: miniSite.id, slug: miniSite.slug }
-          }}
-          onShare={handleShareFromPopup}
-          isSaving={isSavingCommission}
-          initialCommission={pendingCommission}
-        />
-      )}
-
-      {/* ── Marketing Share Modal ── */}
+      {/* ── Marketing Share Modal (Direct — no intermediate step) ── */}
       {miniSite && (
         <MarketingShareModal
           open={shareModalOpen}
           onClose={() => {
             setShareModalOpen(false)
-            if (isAuthenticated && !pendingAction) {
-              setCurrentView('dashboard')
-              setDashboardTab('overview')
-            }
           }}
           product={{
             name: miniSite.product.name,
